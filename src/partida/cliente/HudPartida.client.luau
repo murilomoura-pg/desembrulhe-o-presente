@@ -14,7 +14,6 @@ local Interface = require(Compartilhado:WaitForChild("Interface"))
 local CORES = Interface.CORES
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 
 local remAviso = Util.remoto("Aviso") :: RemoteEvent
 local remColetar = Util.remoto("Coletar") :: RemoteEvent
@@ -46,7 +45,8 @@ local somChave = som("rbxasset://sounds/victory.wav", 0.8)
 ------------------------------------------------------------------------
 local barra = Instance.new("Frame")
 barra.BackgroundTransparency = 1
-barra.Position = UDim2.fromScale(0.01, 0.02)
+-- Fica abaixo da janela de chat do Roblox (que ocupa o canto de cima)
+barra.Position = UDim2.fromScale(0.01, 0.36)
 barra.Size = UDim2.fromScale(0.26, 0.21)
 barra.Parent = gui
 local layout = Instance.new("UIListLayout")
@@ -219,7 +219,9 @@ local function tentarColetar(posTela: Vector2)
 		return
 	end
 	params.FilterDescendantsInstances = { montanha }
-	local raio = camera:ViewportPointToRay(posTela.X, posTela.Y)
+	-- ScreenPointToRay desconta a barra do topo do Roblox (a posição do clique vem sem ela)
+	-- Pega a câmera na hora (o Roblox troca a câmera quando o personagem nasce)
+	local raio = workspace.CurrentCamera:ScreenPointToRay(posTela.X, posTela.Y)
 	local hit = workspace:Raycast(raio.Origin, raio.Direction * 300, params)
 	if hit and hit.Instance.Parent == montanha then
 		local char = player.Character

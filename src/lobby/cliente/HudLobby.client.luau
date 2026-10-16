@@ -25,7 +25,8 @@ local gui = Interface.tela("HudLobby")
 ------------------------------------------------------------------------
 local barra = Instance.new("Frame")
 barra.BackgroundTransparency = 1
-barra.Position = UDim2.fromScale(0.01, 0.02)
+-- Fica abaixo da janela de chat do Roblox (que ocupa o canto de cima)
+barra.Position = UDim2.fromScale(0.01, 0.36)
 barra.Size = UDim2.fromScale(0.3, 0.14)
 barra.Parent = gui
 local layoutBarra = Instance.new("UIListLayout")
@@ -172,7 +173,7 @@ redesenharMenu()
 
 local btnAjudantes = Interface.botao(gui, "🐾 Ajudantes", CORES.azul, {
 	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.fromScale(0.01, 0.5),
+	Position = UDim2.fromScale(0.01, 0.6),
 	Size = UDim2.fromScale(0.16, 0.09),
 })
 local limiteBtn = Instance.new("UISizeConstraint")
