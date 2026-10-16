@@ -95,7 +95,8 @@ function Interface.painel(pai: Instance, titulo: string, tamanho: UDim2): (Frame
 	p.Parent = pai
 
 	Interface.texto(p, { Size = UDim2.fromScale(0.8, 0.12), Position = UDim2.fromScale(0.1, 0.02), Text = titulo, TextColor3 = Interface.CORES.dourado })
-	local fechar = Interface.botao(p, "X", Interface.CORES.vermelho, { Size = UDim2.fromScale(0.1, 0.1), Position = UDim2.fromScale(0.88, 0.02), SizeConstraint = Enum.SizeConstraint.RelativeYY })
+	-- O X fica na esquerda: na direita ele ficava escondido atrás da lista de jogadores do Roblox
+	local fechar = Interface.botao(p, "X", Interface.CORES.vermelho, { Size = UDim2.fromScale(0.1, 0.1), Position = UDim2.fromScale(0.02, 0.02), SizeConstraint = Enum.SizeConstraint.RelativeYY })
 	fechar.Activated:Connect(function()
 		p.Visible = false
 	end)
