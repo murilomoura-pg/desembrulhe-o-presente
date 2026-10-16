@@ -868,7 +868,6 @@ function Natal.prepararTerreno()
 	t:SetMaterialColor(Enum.Material.Glacier, P.neveBatida)
 	t:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(104, 112, 128))
 	t.WaterWaveSize = 0
-	t.Decoration = false
 end
 
 -- Chão de neve retangular, centro em (x, z)

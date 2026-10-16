@@ -181,7 +181,7 @@ local function porBrilho(presente: BasePart)
 		e.Parent = a
 		a.Parent = workspace.Terrain
 	end
-	a.Position = presente.Position + Vector3.yAxis * 0.6
+	a.CFrame = CFrame.new(presente.Position + Vector3.yAxis * 0.6)
 	local e = a:FindFirstChildOfClass("ParticleEmitter")
 	if e then
 		e.Color = ColorSequence.new(presente.Color:Lerp(Color3.new(1, 1, 1), 0.35))
