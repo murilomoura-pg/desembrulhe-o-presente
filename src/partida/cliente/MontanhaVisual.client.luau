@@ -59,7 +59,9 @@ local function calcular(info: Info)
 			cobertos += 1
 		end
 	end
-	info.exposto = exposto or cobertos < 4
+	-- "Aparece" = tem um lado livre ou pelo menos metade do topo descoberto
+	-- (com 3 vizinhos em cima, quase não dá pra ver a caixa)
+	info.exposto = exposto or cobertos <= 2
 	info.topoLivre = cobertos == 0
 end
 
@@ -108,12 +110,24 @@ local function corDaFita(presente: BasePart): Color3
 	return presente:GetAttribute("Raridade") == "Dourado" and P.vermelho or P.dourado
 end
 
+-- Gira a fita para ela passar pela face virada para FORA da montanha (a que o jogador vê).
+-- Retorna o CFrame base (o eixo X dele é o sentido da fita) e o tamanho da caixa nesse sentido.
+local function baseDaFita(presente: BasePart): (CFrame, Vector3)
+	local fora = presente.Position * Vector3.new(1, 0, 1)
+	local cf = presente.CFrame
+	local s = presente.Size
+	if fora.Magnitude > 0.01 and math.abs(fora.Unit:Dot(cf.LookVector)) > math.abs(fora.Unit:Dot(cf.RightVector)) then
+		return cf * CFrame.Angles(0, math.pi / 2, 0), Vector3.new(s.Z, s.Y, s.X)
+	end
+	return cf, s
+end
+
 local function porFita(presente: BasePart)
 	local fita = table.remove(fitasLivres) or pecaVisual()
 	fita.Name = "Fita"
-	local s = presente.Size
-	fita.Size = Vector3.new(s.X + 0.08, s.Y + 0.08, s.Z * 0.22)
-	fita.CFrame = presente.CFrame
+	local base, s = baseDaFita(presente)
+	fita.Size = Vector3.new(s.X + 0.08, s.Y + 0.08, s.Z * 0.26)
+	fita.CFrame = base
 	fita.Color = corDaFita(presente)
 	fita.Reflectance = 0.1
 	fita.Parent = pastaVisual
@@ -142,11 +156,11 @@ local function porLaco(presente: BasePart)
 			table.insert(par, orelha)
 		end
 	end
-	local s = presente.Size
+	local base, s = baseDaFita(presente)
 	for i, orelha in par do
 		local lado = i == 1 and -1 or 1
 		orelha.Size = Vector3.new(0.95, 0.45, 0.5)
-		orelha.CFrame = presente.CFrame * CFrame.new(lado * 0.4, s.Y / 2 + 0.14, 0) * CFrame.Angles(0, 0, math.rad(-lado * 28))
+		orelha.CFrame = base * CFrame.new(lado * 0.4, s.Y / 2 + 0.14, 0) * CFrame.Angles(0, 0, math.rad(-lado * 28))
 		orelha.Color = corDaFita(presente)
 		orelha.Parent = pastaVisual
 	end

@@ -49,7 +49,10 @@ function MapaLobby.construir()
 
 	-- Título (placa grande no alto, atrás das casas, para não ficar escondida pelos telhados)
 	local titulo = Util.peca({ Name = "Titulo", Size = Vector3.new(70, 14, 2), CFrame = CFrame.new(0, 61, -78) * VIRAR, Color = P.vermelho, Parent = pasta })
-	Util.placa(titulo, "🎁 DESEMBRULHE O PRESENTE 🎁", Enum.NormalId.Front, Color3.new(1, 1, 1))
+	local textoTitulo = Util.placa(titulo, "🎁 DESEMBRULHE O PRESENTE 🎁", Enum.NormalId.Front, Color3.new(1, 1, 1))
+	-- Placa enorme: menos pixels por stud deixa as letras grandes (o texto tem tamanho máximo)
+	local guiTitulo = textoTitulo.Parent :: SurfaceGui
+	guiTitulo.PixelsPerStud = 12
 
 	-- Salas (cada uma vira um chalé de madeira aberto na frente)
 	local salas = {}

@@ -248,6 +248,19 @@ function Interface.painel(pai: Instance, titulo: string, tamanho: UDim2): (Frame
 	conteudo.CanvasSize = UDim2.new()
 	conteudo.ZIndex = 2
 	conteudo.Parent = p
+	-- Em telas pequenas o X (mínimo 44 px) fica mais alto que o título:
+	-- então a lista começa logo abaixo dele, para nada ficar por baixo do botão.
+	local function ajustarConteudo()
+		local altura = p.AbsoluteSize.Y
+		if altura <= 0 then
+			return
+		end
+		local topo = math.max(altura * 0.16, altura * 0.02 + math.max(altura * 0.1, ALTURA_MIN_BOTAO) + 6)
+		conteudo.Position = UDim2.new(0.04, 0, 0, topo)
+		conteudo.Size = UDim2.new(0.92, 0, 1, -topo - altura * 0.04)
+	end
+	p:GetPropertyChangedSignal("AbsoluteSize"):Connect(ajustarConteudo)
+	ajustarConteudo()
 	return p, conteudo :: any
 end
 
