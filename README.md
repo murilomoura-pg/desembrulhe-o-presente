@@ -7,8 +7,8 @@ Desembrulhe, compre melhorias, ache a chave, abra o portão e fuja o mais rápid
 
 | Parte | O que acontece |
 |---|---|
-| **Lobby** | Praça de neve com 4 salas: **Solo, Dupla, Trio e Quarteto**. Quando a sala enche, o grupo vai para uma partida só dele. Tem os placares de fuga mais rápida, o placar de Renascimentos e a Máquina de Ajudantes. |
-| **Partida** | Pátio da Fábrica do Papai Noel. Clique/toque nos presentes para pegar, leve até a **Mesa de Desembrulhar** e segure o botão. Moedas compram melhorias na **Loja**. A chave aparece quando a montanha está quase no fim. |
+| **Lobby** | Vila de Natal com 4 salas (chalés): **Solo, Dupla, Trio e Quarteto**. Quando a sala enche, o grupo vai para uma partida só dele. Tem os placares de fuga mais rápida, o placar de Renascimentos e a Máquina de Ajudantes. |
+| **Partida** | Pátio da Oficina do Papai Noel. Clique/toque nos presentes para pegar, leve até a **Mesa de Desembrulhar** e segure o botão. Moedas compram melhorias na **Loja**. A chave aparece quando a montanha está quase no fim. |
 | **Ajudantes** | Pets que desembrulham sozinhos. Custam 40 ⭐ na máquina do lobby. Até 3 equipados. |
 | **Renascimento** | Cada fuga dá +1 Renascimento = +50% de moedas para sempre. |
 
@@ -17,12 +17,12 @@ Desembrulhe, compre melhorias, ache a chave, abra o portão e fuja o mais rápid
 ```
 src/
   compartilhado/     → código usado no servidor e no cliente (Config, Util, Interface)
-  servidor-comum/    → salvar dados e ranking (usado no Lobby e na Partida)
-  cliente-comum/     → ajudantes seguindo os jogadores
-  lobby/servidor     → mapa do lobby, salas, teleporte, placares, máquina
+  servidor-comum/    → salvar dados, ranking e o kit de decoração de Natal (Natal.luau)
+  cliente-comum/     → ajudantes seguindo os jogadores + efeitos de ambiente (neve, pisca-pisca...)
+  lobby/servidor     → mapa do lobby, salas, teleporte, placares, máquina + DecoracaoLobby
   lobby/cliente      → interface do lobby
-  partida/servidor   → montanha, mapa, regras da partida, chave, fuga
-  partida/cliente    → interface da partida (loja, botão, tempo...)
+  partida/servidor   → montanha, mapa, regras da partida, chave, fuga + DecoracaoPartida
+  partida/cliente    → interface da partida (loja, botão, tempo...) + laços da montanha
 lobby.project.json   → monta o lugar "Lobby"
 partida.project.json → monta o lugar "Partida"
 ```
@@ -53,3 +53,25 @@ rojo build partida.project.json -o build/Partida.rbxl
 
 - **Partida**: aperte *Play*. Ela começa no modo Solo automaticamente.
 - **Lobby**: dá pra andar, girar ajudantes e entrar nas salas. O **teleporte** só funciona no jogo publicado.
+
+## 🎄 Visual de Natal
+
+O jogo tem cara de **vila de Natal**. Isso é **só aparência**: as regras, os preços e os dados salvos são os mesmos de antes.
+
+| Onde | O que tem |
+|---|---|
+| **Lobby** | Chão de neve de verdade (Terrain) com caminhos de neve batida e montanhas em volta. Cada sala é um **chalé de madeira** com telhado nevado, guirlandas, pisca-pisca e bandeirinhas na cor da sala. No centro da praça fica a **Árvore Gigante**, com estrela 3D. A máquina fica na porta da **Fábrica de Ajudantes**, que tem chaminé com fumaça. Os placares ganharam moldura de madeira com neve, e uma floresta de pinheiros cerca tudo. |
+| **Partida** | O pátio virou a **Oficina do Papai Noel**: fachada da oficina atrás do spawn, muros de pedra e madeira com luzes e guirlandas, portão de oficina com **cadeado dourado** (as luzes do portão pulsam quando alguém acha a chave), bancada de elfo na Mesa, barraquinha com toldo listrado na Loja e uma estrela dourada sobre a montanha. |
+| **Efeitos** | Neve caindo, pisca-pisca suave, brilhos dourados e fumaça. Tudo roda **no cliente** (fica leve para o servidor) e é mais econômico no celular. |
+| **Interface** | Painéis vermelhos com borda dourada e sombra, botões com animação e altura mínima de 44 px (bom para o dedo). |
+
+Arquivos do visual:
+- `Config.luau` → `Config.PALETA` (as cores de Natal) e `Config.TAGS_NATAL`.
+- `servidor-comum/Natal.luau` → o "kit" de enfeites: `pinheiro`, `arvoreGigante`, `chale`, `telhado`, `guirlanda`, `cordaoDeLuzes`, `bonecoDeNeve`, `poste`, `placaDeMadeira`, `moldura` e outros, além da iluminação e do terreno.
+- `lobby/servidor/DecoracaoLobby.luau` e `partida/servidor/DecoracaoPartida.luau` → onde cada enfeite fica.
+- `cliente-comum/Ambiente.client.luau` → neve caindo, pisca-pisca, brilhos, fumaça e luzes do portão.
+- `partida/cliente/MontanhaVisual.client.luau` → laços da montanha. O servidor cria só a caixa de cada presente (1 peça). O cliente põe fita e laço nos presentes **de fora** e **perto da câmera**, com limite de no máximo +20% de peças.
+
+👉 **Quer mudar uma cor de Natal?** Mude em `Config.PALETA`. Para tirar ou mover um enfeite, procure o nome dele em `DecoracaoLobby.luau` ou `DecoracaoPartida.luau`.
+
+**Iluminação:** a tecnologia de luz **Future** já vem configurada nos arquivos `.project.json` (não dá para trocar por script). Se o Studio perguntar sobre a migração de iluminação, pode aceitar.
