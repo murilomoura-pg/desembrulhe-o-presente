@@ -93,6 +93,18 @@ function Natal.peca(pai: Instance, props: { [string]: any }): BasePart
 	return p
 end
 
+-- Enfeite "soldado" numa peça que se mexe (ex.: o Portão, que sobe na fuga).
+-- Ele acompanha a peça sozinho, sem precisar de nenhum código extra.
+function Natal.soldar(peca: BasePart, enfeite: BasePart)
+	enfeite.Anchored = false
+	enfeite.Massless = true
+	enfeite.CanCollide = false
+	local solda = Instance.new("WeldConstraint")
+	solda.Part0 = peca
+	solda.Part1 = enfeite
+	solda.Parent = enfeite
+end
+
 -- Peça "sólida": bloqueia o jogador e faz sombra (paredes, troncos, cercas)
 function Natal.solida(pai: Instance, props: { [string]: any }): BasePart
 	local p = Natal.peca(pai, props)
@@ -886,6 +898,19 @@ function Natal.praca(centro: Vector3, raio: number)
 	for ix = -r, r do
 		for iz = -r, r do
 			if ix * ix + iz * iz <= r * r then
+				workspace.Terrain:FillBlock(CFrame.new(alinhar(centro.X) + ix * 4, -2, alinhar(centro.Z) + iz * 4), Vector3.new(4, 4, 4), Enum.Material.Glacier)
+			end
+		end
+	end
+end
+
+-- Anel de neve batida (caminho em volta de algo redondo, como a montanha)
+function Natal.anel(centro: Vector3, raioInterno: number, raioExterno: number)
+	local r = math.ceil(raioExterno / 4)
+	for ix = -r, r do
+		for iz = -r, r do
+			local d = math.sqrt(ix * ix + iz * iz) * 4
+			if d >= raioInterno and d <= raioExterno then
 				workspace.Terrain:FillBlock(CFrame.new(alinhar(centro.X) + ix * 4, -2, alinhar(centro.Z) + iz * 4), Vector3.new(4, 4, 4), Enum.Material.Glacier)
 			end
 		end
