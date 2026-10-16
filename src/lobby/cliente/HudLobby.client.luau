@@ -66,6 +66,7 @@ caixaSala.BackgroundColor3 = CORES.fundo
 caixaSala.BackgroundTransparency = 0.1
 caixaSala.Visible = false
 Interface.arredondar(caixaSala, 0.3)
+Interface.fundoNatal(caixaSala)
 caixaSala.Parent = gui
 local lblSala = Interface.texto(caixaSala, { Size = UDim2.fromScale(0.68, 0.8), Position = UDim2.fromScale(0.03, 0.1) })
 local btnSair = Interface.botao(caixaSala, "SAIR", CORES.vermelho, { Size = UDim2.fromScale(0.25, 0.8), Position = UDim2.fromScale(0.72, 0.1) })
@@ -199,6 +200,7 @@ contornoGiro.Parent = janelaGiro
 local proporcaoGiro = Instance.new("UIAspectRatioConstraint")
 proporcaoGiro.AspectRatio = 0.9
 proporcaoGiro.Parent = janelaGiro
+Interface.fundoNatal(janelaGiro)
 janelaGiro.Parent = gui
 local lblGiroEmoji = Interface.texto(janelaGiro, { Size = UDim2.fromScale(1, 0.45), Position = UDim2.fromScale(0, 0.05) })
 local lblGiroNome = Interface.texto(janelaGiro, { Size = UDim2.fromScale(0.9, 0.15), Position = UDim2.fromScale(0.05, 0.52) })

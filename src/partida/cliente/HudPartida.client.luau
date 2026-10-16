@@ -89,6 +89,7 @@ topo.Size = UDim2.fromScale(0.34, 0.12)
 topo.BackgroundColor3 = CORES.fundo
 topo.BackgroundTransparency = 0.15
 Interface.arredondar(topo, 0.2)
+Interface.fundoNatal(topo)
 topo.Parent = gui
 local lblTempo = Interface.texto(topo, { Size = UDim2.fromScale(1, 0.5), Position = UDim2.fromScale(0, 0.04), Text = "00:00" })
 local fundoBarra = Instance.new("Frame")
@@ -428,6 +429,7 @@ remFugiram.OnClientEvent:Connect(function(r)
 	painel.BackgroundColor3 = CORES.painel
 	Interface.arredondar(painel, 0.06)
 	Interface.contorno(painel, CORES.dourado, 4)
+	Interface.fundoNatal(painel)
 	local lim = Instance.new("UISizeConstraint")
 	lim.MinSize = Vector2.new(300, 220)
 	lim.Parent = painel
