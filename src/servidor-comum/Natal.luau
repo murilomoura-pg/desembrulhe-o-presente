@@ -392,8 +392,9 @@ function Natal.pinheiro(pai: Instance, pos: Vector3, escala: number, opcoes: { [
 end
 
 -- A ÁRVORE GIGANTE do Lobby: ponto focal da praça
-function Natal.arvoreGigante(pai: Instance, pos: Vector3, frente: Vector3): Model
+function Natal.arvoreGigante(pai: Instance, pos: Vector3, direcaoFrente: Vector3): Model
 	local m = Natal.modelo(pai, "ArvoreGigante")
+	local frente = (direcaoFrente * Vector3.new(1, 0, 1)).Unit
 	-- Saia da árvore (tapete redondo) e tronco
 	Natal.peca(m, { Name = "Saia", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 30, 30), CFrame = CFrame.new(pos + CIMA * 0.15) * CFrame.Angles(0, 0, math.rad(90)), Color = P.vermelhoEscuro, Material = Enum.Material.Fabric })
 	Natal.peca(m, { Name = "BordaSaia", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 31.5, 31.5), CFrame = CFrame.new(pos + CIMA * 0.1) * CFrame.Angles(0, 0, math.rad(90)), Color = P.dourado })
