@@ -116,7 +116,9 @@ end
 ------------------------------------------------------------------------
 local function oficina(dec: Instance, info: { [string]: any })
 	local M = info.meio
-	local pos = Vector3.new(0, 0, M - 5)
+	-- Encostada no muro sul (a parte de trás fica escondida dentro dele). Assim sobram
+	-- ~14 passos até o spawn e a câmera (que fica ~12,5 atrás do jogador) não entra na parede.
+	local pos = Vector3.new(0, 0, M - 1)
 	local cf = CFrame.lookAt(pos, Vector3.new(0, 0, 0))
 	local m, _ = Natal.chale(dec, cf, 60, 6, 28, { nome = "OficinaDoPapaiNoel", janelas = false, chamine = true, luzesFrente = 12, inclinacao = 0.4 })
 	-- Placa grande no frontão

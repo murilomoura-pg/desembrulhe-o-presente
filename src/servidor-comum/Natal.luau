@@ -109,6 +109,10 @@ end
 function Natal.solida(pai: Instance, props: { [string]: any }): BasePart
 	local p = Natal.peca(pai, props)
 	p.CanCollide = true
+	-- A câmera do Roblox só desvia de peças com CanQuery ligado. Sem isso ela
+	-- entrava dentro da parede da oficina quando o jogador nascia (tela toda vermelha).
+	-- O clique nos presentes só procura dentro da Montanha, então não atrapalha.
+	p.CanQuery = true
 	p.CastShadow = true
 	return p
 end

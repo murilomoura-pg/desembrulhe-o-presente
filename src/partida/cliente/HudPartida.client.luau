@@ -137,7 +137,8 @@ end)
 
 local btnDesembrulhar = Interface.botao(gui, "✂️ DESEMBRULHAR", CORES.verde, {
 	AnchorPoint = Vector2.new(1, 1),
-	Position = UDim2.fromScale(0.97, 0.72),
+	-- Acima do botão de pulo do celular (que fica no canto de baixo à direita)
+	Position = UDim2.fromScale(0.97, 0.56),
 	Size = UDim2.fromScale(0.24, 0.16),
 	Visible = false,
 })
