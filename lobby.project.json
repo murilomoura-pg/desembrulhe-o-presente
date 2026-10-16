@@ -1,0 +1,24 @@
+{
+  "name": "Lobby",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Compartilhado": { "$path": "src/compartilhado" }
+    },
+    "ServerStorage": {
+      "Comum": { "$path": "src/servidor-comum" }
+    },
+    "ServerScriptService": {
+      "Lobby": { "$path": "src/lobby/servidor" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Lobby": { "$path": "src/lobby/cliente" },
+        "Comum": { "$path": "src/cliente-comum" }
+      }
+    },
+    "Players": {
+      "$properties": { "CharacterAutoLoads": true }
+    }
+  }
+}

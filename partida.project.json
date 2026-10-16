@@ -1,0 +1,21 @@
+{
+  "name": "Partida",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Compartilhado": { "$path": "src/compartilhado" }
+    },
+    "ServerStorage": {
+      "Comum": { "$path": "src/servidor-comum" }
+    },
+    "ServerScriptService": {
+      "Partida": { "$path": "src/partida/servidor" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Partida": { "$path": "src/partida/cliente" },
+        "Comum": { "$path": "src/cliente-comum" }
+      }
+    }
+  }
+}
