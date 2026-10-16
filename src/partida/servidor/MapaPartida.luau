@@ -1,11 +1,12 @@
 -- Constrói o pátio da Fábrica do Papai Noel: muros, Mesa de Desembrulhar, Loja e o Portão trancado.
 -- A montanha de presentes é feita em outro arquivo (Montanha.luau).
 
-local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Compartilhado.Config)
 local Util = require(ReplicatedStorage.Compartilhado.Util)
+local Natal = require(ServerStorage.Comum.Natal)
 
 local MapaPartida = {}
 
@@ -30,16 +31,7 @@ end
 
 -- raio = raio da montanha (o pátio cresce junto com ela)
 function MapaPartida.construir(raio: number)
-	Lighting.ClockTime = 16.2
-	Lighting.Brightness = 2
-	Lighting.Ambient = Color3.fromRGB(130, 125, 150)
-	Lighting.OutdoorAmbient = Color3.fromRGB(160, 160, 190)
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local atm = Instance.new("Atmosphere")
-		atm.Density = 0.25
-		atm.Color = Color3.fromRGB(210, 215, 255)
-		atm.Parent = Lighting
-	end
+	Natal.iluminacao()
 
 	local pasta = Instance.new("Folder")
 	pasta.Name = "MapaPartida"

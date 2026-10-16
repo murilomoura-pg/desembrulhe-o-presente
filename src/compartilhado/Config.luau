@@ -125,4 +125,41 @@ Config.CORES_RARIDADE_AJUDANTE = {
 	["Mítico"] = Color3.fromRGB(255, 70, 90),
 }
 
+------------------------------------------------------------------------
+-- 🎄 VISUAL DE NATAL (só aparência: nada aqui muda as regras do jogo)
+------------------------------------------------------------------------
+
+-- Paleta de cores usada no cenário e na interface.
+-- Proporção pensada: muita neve e tons neutros, depois verde e madeira,
+-- um pouco de vermelho e só um toque de dourado. As cores fortes ficam
+-- para o que é interativo (salas, mesa, loja, portão, máquina).
+Config.PALETA = {
+	vermelho = Color3.fromRGB(198, 40, 40), -- #C62828 destaques, telhados, laços
+	verde = Color3.fromRGB(22, 91, 51), -- #165B33 árvores, guirlandas
+	neve = Color3.fromRGB(245, 249, 255), -- #F5F9FF neve, chão
+	dourado = Color3.fromRGB(245, 199, 107), -- #F5C76B brilhos, estrelas, molduras
+	azul = Color3.fromRGB(168, 216, 234), -- #A8D8EA gelo, sombras frias, detalhes
+	madeira = Color3.fromRGB(101, 67, 46), -- #65432E casas, cercas, placas
+	luz = Color3.fromRGB(255, 228, 163), -- #FFE4A3 janelas, lâmpadas
+
+	-- Tons de apoio (variações das cores acima, para dar profundidade)
+	vermelhoEscuro = Color3.fromRGB(122, 22, 28),
+	verdeClaro = Color3.fromRGB(38, 122, 68),
+	madeiraClara = Color3.fromRGB(150, 104, 70),
+	madeiraEscura = Color3.fromRGB(64, 42, 30),
+	pedra = Color3.fromRGB(122, 130, 146),
+	metal = Color3.fromRGB(46, 50, 60),
+	neveBatida = Color3.fromRGB(206, 222, 238), -- caminhos de neve pisada
+}
+
+-- Nomes das "etiquetas" (tags) que o cenário coloca nas peças para os efeitos
+-- do cliente acharem: lâmpadas que piscam, chaminés com fumaça, brilhos dourados
+-- e as luzes do portão que acendem quando alguém acha a chave.
+Config.TAGS_NATAL = {
+	lampada = "NatalLampada",
+	chamine = "NatalChamine",
+	brilho = "NatalBrilho",
+	portao = "NatalPortao",
+}
+
 return Config

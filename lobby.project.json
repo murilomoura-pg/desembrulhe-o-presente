@@ -19,6 +19,9 @@
     },
     "Players": {
       "$properties": { "CharacterAutoLoads": true }
+    },
+    "Lighting": {
+      "$properties": { "Technology": "Future" }
     }
   }
 }

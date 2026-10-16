@@ -1,11 +1,12 @@
 -- Constrói o mapa do Lobby (praça de neve com as 4 salas, placares e a máquina de ajudantes).
 -- Tudo é criado por código quando o servidor liga. Depois dá pra trocar por modelos bonitos no Studio.
 
-local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Compartilhado.Config)
 local Util = require(ReplicatedStorage.Compartilhado.Util)
+local Natal = require(ServerStorage.Comum.Natal)
 
 local MapaLobby = {}
 
@@ -17,17 +18,7 @@ local VERDE_PINHEIRO = Color3.fromRGB(30, 110, 60)
 local VIRAR = CFrame.Angles(0, math.pi, 0)
 
 local function iluminacao()
-	Lighting.ClockTime = 17.6
-	Lighting.Brightness = 2
-	Lighting.Ambient = Color3.fromRGB(120, 120, 150)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 190)
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local atm = Instance.new("Atmosphere")
-		atm.Density = 0.3
-		atm.Color = Color3.fromRGB(200, 210, 255)
-		atm.Decay = Color3.fromRGB(120, 130, 190)
-		atm.Parent = Lighting
-	end
+	Natal.iluminacao()
 end
 
 local function pinheiro(pasta: Instance, pos: Vector3, escala: number)
