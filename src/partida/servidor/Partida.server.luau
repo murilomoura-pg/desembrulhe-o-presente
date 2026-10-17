@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local TeleportService = game:GetService("TeleportService")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Compartilhado.Config)
 local Util = require(ReplicatedStorage.Compartilhado.Util)
@@ -15,6 +14,7 @@ local Dados = require(ServerStorage.Comum.Dados)
 local Ranking = require(ServerStorage.Comum.Ranking)
 local Montanha = require(script.Parent.Montanha)
 local MapaPartida = require(script.Parent.MapaPartida)
+local Bancadas = require(script.Parent.Bancadas)
 
 local remAviso = Util.remoto("Aviso") :: RemoteEvent
 local remColetar = Util.remoto("Coletar") :: RemoteEvent
@@ -39,9 +39,12 @@ type Estado = {
 	niveis: { [string]: number },
 	saco: { [string]: number }, -- quantidade por raridade
 	sacoTotal: number,
+	estoque: { [string]: number }, -- presentes colocados na bancada do jogador (por raridade)
+	estoqueTotal: number,
 	segurando: boolean,
 	acumulado: number,
 	ultimoClique: number,
+	ultimoColocar: number,
 	timersAjudantes: { number },
 	resumo: { moedas: number, raros: { string }, estrelas: number }, -- para mandar ao cliente
 }
@@ -61,6 +64,11 @@ local function atualizarAtributos(player: Player)
 	player:SetAttribute("Moedas", math.floor(e.moedas))
 	player:SetAttribute("Saco", e.sacoTotal)
 	player:SetAttribute("SacoMax", valorMelhoria(e, "Saco"))
+	player:SetAttribute("Estoque", e.estoqueTotal)
+	local bancada = Bancadas.de(player)
+	if bancada then
+		Bancadas.definirEstoque(bancada, e.estoqueTotal)
+	end
 	for _, m in Config.MELHORIAS do
 		player:SetAttribute("Nivel_" .. m.id, e.niveis[m.id] or 1)
 	end
@@ -131,15 +139,21 @@ local function lerTeleportData(player: Player)
 	return false
 end
 
+-- Dá uma bancada ao jogador (fica pronta quando o mapa é montado, mais abaixo)
+local darBancada: ((Player) -> ())? = nil
+
 local function criarEstado(player: Player)
 	local e: Estado = {
 		moedas = 0,
 		niveis = {},
 		saco = {},
 		sacoTotal = 0,
+		estoque = {},
+		estoqueTotal = 0,
 		segurando = false,
 		acumulado = 0,
 		ultimoClique = 0,
+		ultimoColocar = 0,
 		timersAjudantes = {},
 		resumo = { moedas = 0, raros = {}, estrelas = 0 },
 	}
@@ -161,6 +175,10 @@ local function criarEstado(player: Player)
 		aplicarVelocidade(player)
 	end)
 	aplicarVelocidade(player)
+	-- Quem chega depois do mapa pronto já recebe a bancada
+	if darBancada then
+		darBancada(player)
+	end
 end
 
 local primeiroJogador = false
@@ -181,6 +199,81 @@ end
 local raio = Montanha.gerar(modo.presentes, Montanha.raioPara(modo.presentes))
 mapa = MapaPartida.construir(raio)
 workspace:SetAttribute("Modo", modo.nome)
+
+------------------------------------------------------------------------
+-- BANCADAS: cada jogador recebe uma (quem já chegou e quem chegar depois)
+------------------------------------------------------------------------
+local function entregarBancada(player: Player)
+	if not Bancadas.atribuir(player) then
+		warn("[Partida] Nenhuma bancada livre para " .. player.Name)
+	end
+	atualizarAtributos(player)
+end
+darBancada = entregarBancada
+for _, p in Players:GetPlayers() do
+	if estados[p] then
+		entregarBancada(p)
+	end
+end
+
+-- "Colocar presentes": passa TUDO do saco para o estoque da própria bancada
+local function colocarNaBancada(player: Player, bancada: Bancadas.Bancada)
+	local e = estados[player]
+	if not e or terminou then
+		return
+	end
+	if bancada.dono ~= player then
+		local dono = bancada.dono and bancada.dono.DisplayName or "ninguém"
+		remAviso:FireClient(player, "Essa bancada é de " .. dono .. ". A sua é a Bancada " .. tostring(player:GetAttribute("Bancada") or "?") .. "!")
+		return
+	end
+	if os.clock() - e.ultimoColocar < 0.3 then
+		return
+	end
+	e.ultimoColocar = os.clock()
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or not Bancadas.perto(bancada, root.Position) then
+		return
+	end
+	if e.sacoTotal <= 0 then
+		remAviso:FireClient(player, "🎒 Seu saco está vazio! Pegue presentes na montanha.")
+		return
+	end
+	for rar, qtd in e.saco do
+		e.estoque[rar] = (e.estoque[rar] or 0) + qtd
+	end
+	e.estoqueTotal += e.sacoTotal
+	e.saco = {}
+	e.sacoTotal = 0
+	atualizarAtributos(player)
+end
+for _, b in Bancadas.lista do
+	b.prompt.Triggered:Connect(function(player)
+		colocarNaBancada(player, b)
+	end)
+end
+
+-- Caixotes de melhorias: apertar E (ou encostar) abre a mesma Loja já no item
+local ultimoCaixote: { [Player]: number } = {}
+for _, c in mapa.caixotes do
+	local function abrir(player: Player, espera: number)
+		if os.clock() - (ultimoCaixote[player] or 0) < espera then
+			return
+		end
+		ultimoCaixote[player] = os.clock()
+		remAbrirLoja:FireClient(player, c.id)
+	end
+	c.prompt.Triggered:Connect(function(player)
+		abrir(player, 0.4)
+	end)
+	c.caixa.Touched:Connect(function(parte)
+		local player = Players:GetPlayerFromCharacter(parte.Parent)
+		if player then
+			abrir(player, 6)
+		end
+	end)
+end
 
 -- Leva quem já está no jogo para o spawn novo
 for _, p in Players:GetPlayers() do
@@ -253,10 +346,11 @@ local function darChave(player: Player)
 	end
 end
 
+-- Presentes que ainda estão com os jogadores (no saco ou em cima da bancada)
 local function totalNosSacos(): number
 	local t = 0
 	for _, e in estados do
-		t += e.sacoTotal
+		t += e.sacoTotal + e.estoqueTotal
 	end
 	return t
 end
@@ -307,16 +401,16 @@ local function desembrulhar(player: Player, raridade: string)
 	conferirChave(player)
 end
 
-local function tirarDoSaco(e: Estado): string?
-	if e.sacoTotal <= 0 then
+-- Tira um presente do estoque da bancada (sorteado proporcional ao que tem lá)
+local function tirarDaBancada(e: Estado): string?
+	if e.estoqueTotal <= 0 then
 		return nil
 	end
-	-- Sorteia proporcional ao que tem no saco
-	local r = math.random(1, e.sacoTotal)
-	for rar, qtd in e.saco do
+	local r = math.random(1, e.estoqueTotal)
+	for rar, qtd in e.estoque do
 		if r <= qtd then
-			e.saco[rar] = qtd - 1
-			e.sacoTotal -= 1
+			e.estoque[rar] = qtd - 1
+			e.estoqueTotal -= 1
 			return rar
 		end
 		r -= qtd
@@ -401,7 +495,7 @@ remComprar.OnServerInvoke = function(player: Player, id: any)
 end
 
 ------------------------------------------------------------------------
--- Loop principal: mesa de desembrulhar + ajudantes
+-- Loop principal: bancadas de desembrulhar + ajudantes
 ------------------------------------------------------------------------
 local tempoEnvio = 0
 RunService.Heartbeat:Connect(function(dt)
@@ -412,15 +506,15 @@ RunService.Heartbeat:Connect(function(dt)
 		local char = player.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 
-		-- Desembrulhar na mesa
-		if e.segurando and root and e.sacoTotal > 0 then
-			local distancia = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(mapa.mesaPos.X, 0, mapa.mesaPos.Z)).Magnitude
-			if distancia <= Config.RAIO_MESA + 2 then
+		-- Desembrulhar na PRÓPRIA bancada (do estoque que está em cima dela)
+		local bancada = Bancadas.de(player)
+		if e.segurando and root and bancada and e.estoqueTotal > 0 then
+			if Bancadas.perto(bancada, root.Position) then
 				e.acumulado += valorMelhoria(e, "Tesoura") * dt
 				local mudou = false
-				while e.acumulado >= 1 and e.sacoTotal > 0 do
+				while e.acumulado >= 1 and e.estoqueTotal > 0 do
 					e.acumulado -= 1
-					local rar = tirarDoSaco(e)
+					local rar = tirarDaBancada(e)
 					if rar then
 						desembrulhar(player, rar)
 						mudou = true
@@ -478,12 +572,10 @@ local function fugir()
 	local tempo = workspace:GetServerTimeNow() - inicioServidor
 	workspace:SetAttribute("TempoFinal", tempo)
 
-	-- Abre o portão
+	-- Abre o portão (a porta redonda do cofre gira para dentro da oficina)
 	mapa.promptPortao.Enabled = false
 	mapa.cadeado:Destroy()
-	TweenService:Create(mapa.portao, TweenInfo.new(2.5, Enum.EasingStyle.Quad), {
-		CFrame = mapa.portao.CFrame + Vector3.new(0, mapa.portao.Size.Y + 2, 0),
-	}):Play()
+	mapa.abrirPortao()
 
 	local resultados = {}
 	for _, player in Players:GetPlayers() do
@@ -555,9 +647,12 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	local e = estados[player]
 	if e then
-		perdidos += e.sacoTotal
+		-- Presentes do saco E da bancada saem com ele (para a chave continuar aparecendo)
+		perdidos += e.sacoTotal + e.estoqueTotal
 	end
 	estados[player] = nil
+	ultimoCaixote[player] = nil
+	Bancadas.liberar(player)
 	if chave.encontrada and chave.dono == player and not terminou then
 		-- passa a chave para outro jogador
 		chave.encontrada = false

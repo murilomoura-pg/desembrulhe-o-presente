@@ -8,7 +8,7 @@ Desembrulhe, compre melhorias, ache a chave, abra o portão e fuja o mais rápid
 | Parte | O que acontece |
 |---|---|
 | **Lobby** | Vila de Natal com 4 salas (chalés): **Solo, Dupla, Trio e Quarteto**. Quando a sala enche, o grupo vai para uma partida só dele. Tem os placares de fuga mais rápida, o placar de Renascimentos e a Máquina de Ajudantes. |
-| **Partida** | Pátio da Oficina do Papai Noel. Clique/toque nos presentes para pegar, leve até a **Mesa de Desembrulhar** e segure o botão. Moedas compram melhorias na **Loja**. A chave aparece quando a montanha está quase no fim. |
+| **Partida** | Pátio da Oficina do Papai Noel (layout parecido com o Peel THE Potato). Clique/toque nos presentes da montanha para pegar, leve até a **sua Bancada** na Oficina dos Elfos, aperte **E** para colocar os presentes nela e segure **DESEMBRULHAR** (ou F, ou arraste o mouse/dedo por cima dos presentes). Moedas compram melhorias na **Loja** (Máquina de Presentes ou caixotes). A chave aparece quando a montanha está quase no fim e abre o **cofre** no fundo da oficina. |
 | **Ajudantes** | Pets que desembrulham sozinhos. Custam 40 ⭐ na máquina do lobby. Até 3 equipados. |
 | **Renascimento** | Cada fuga dá +1 Renascimento = +50% de moedas para sempre. |
 
@@ -61,7 +61,7 @@ O jogo tem cara de **vila de Natal**. Isso é **só aparência**: as regras, os 
 | Onde | O que tem |
 |---|---|
 | **Lobby** | Chão de neve de verdade (Terrain) com caminhos de neve batida e montanhas em volta. Cada sala é um **chalé de madeira** com telhado nevado, guirlandas, pisca-pisca e bandeirinhas na cor da sala. No centro da praça fica a **Árvore Gigante**, com estrela 3D. A máquina fica na porta da **Fábrica de Ajudantes**, que tem chaminé com fumaça. Os placares ganharam moldura de madeira com neve, e uma floresta de pinheiros cerca tudo. |
-| **Partida** | O pátio virou a **Oficina do Papai Noel**: fachada da oficina atrás do spawn, muros de pedra e madeira com luzes e guirlandas, portão de oficina com **cadeado dourado** (as luzes do portão pulsam quando alguém acha a chave), bancada de elfo na Mesa, barraquinha com toldo listrado na Loja e uma estrela dourada sobre a montanha. |
+| **Partida** | Pátio com neve e cercas de tela, montanha numa plataforma com anel dourado e setas no chão. Atrás do spawn fica a **Oficina dos Elfos** (galpão aberto) com as 4 bancadas, a Máquina de Presentes (loja) e o **cofre redondo** (portão de fuga), cujas luzes pulsam quando alguém acha a chave. Caixotes com as melhorias ficam perto do spawn e uma estrela dourada brilha sobre a montanha. |
 | **Efeitos** | Neve caindo, pisca-pisca suave, brilhos dourados e fumaça. Tudo roda **no cliente** (fica leve para o servidor) e é mais econômico no celular. |
 | **Interface** | Painéis vermelhos com borda dourada e sombra, botões com animação e altura mínima de 44 px (bom para o dedo). |
 
@@ -75,3 +75,13 @@ Arquivos do visual:
 👉 **Quer mudar uma cor de Natal?** Mude em `Config.PALETA`. Para tirar ou mover um enfeite, procure o nome dele em `DecoracaoLobby.luau` ou `DecoracaoPartida.luau`.
 
 **Iluminação:** a tecnologia de luz **Future** já vem configurada nos arquivos `.project.json` (não dá para trocar por script). Se o Studio perguntar sobre a migração de iluminação, pode aceitar.
+
+## ✂️ Bancadas de desembrulhar
+
+Cada jogador da partida recebe **uma bancada** (são 4, uma por jogador; no Solo as outras ficam "Livre").
+
+1. Pegue presentes na montanha (o saco aparece embaixo à esquerda, ex.: `🎒 7/10`).
+2. Vá até a **sua bancada** (a placa mostra seu nome e a sua cor) e aperte **E** (ou toque no botão): tudo o que está no saco vai para cima da bancada.
+3. Segure **✂️ DESEMBRULHAR** (ou a tecla **F**, ou segure o mouse/dedo passando por cima dos presentes da bancada). Cada presente aberto vira moedas, na velocidade da melhoria **Tesoura**.
+
+Só o dono usa a própria bancada (o servidor confere o dono e a distância). Se alguém sai da partida, a bancada volta a ficar "Livre". Arquivos: `partida/servidor/Bancadas.luau` (bancadas e donos), `Partida.server.luau` (regras) e `partida/cliente/BancadasVisual.client.luau` (pilha de presentes e papel picado).

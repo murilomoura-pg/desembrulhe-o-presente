@@ -69,7 +69,17 @@ Config.CHAVE_MAX = 0.985
 
 -- Distâncias (em studs)
 Config.ALCANCE_COLETA = 24
-Config.RAIO_MESA = 14
+-- Distância máxima da SUA bancada para colocar presentes e desembrulhar
+Config.RAIO_BANCADA = 9
+
+-- Bancadas de desembrulhar (uma por jogador, no máximo 4 na partida).
+-- Cor de cada bancada pelo número (verde, azul, roxo, laranja).
+Config.CORES_BANCADA = {
+	Color3.fromRGB(80, 200, 120),
+	Color3.fromRGB(80, 160, 255),
+	Color3.fromRGB(190, 110, 255),
+	Color3.fromRGB(255, 140, 70),
+}
 
 -- Renascimento: cada fuga dá +1, e cada um dá +50% de moedas para sempre
 Config.BONUS_POR_RENASCIMENTO = 0.5

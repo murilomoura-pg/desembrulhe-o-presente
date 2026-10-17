@@ -65,7 +65,27 @@ local function etiqueta(): TextLabel
 end
 local lblMoedas = etiqueta()
 local lblEstrelas = etiqueta()
-local lblSaco = etiqueta()
+
+-- Contador do saco embaixo à esquerda (no celular fica um pouco acima, longe do joystick)
+local lblSaco = Interface.texto(gui, {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UserInputService.TouchEnabled and UDim2.fromScale(0.01, 0.6) or UDim2.fromScale(0.01, 0.97),
+	Size = UDim2.fromScale(0.2, 0.075),
+	BackgroundTransparency = 0.15,
+	BackgroundColor3 = CORES.fundo,
+	TextXAlignment = Enum.TextXAlignment.Left,
+})
+Interface.arredondar(lblSaco, 0.3)
+do
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0.06, 0)
+	pad.PaddingTop = UDim.new(0.12, 0)
+	pad.PaddingBottom = UDim.new(0.12, 0)
+	pad.Parent = lblSaco
+	local limite = Instance.new("UISizeConstraint")
+	limite.MinSize = Vector2.new(120, 34)
+	limite.Parent = lblSaco
+end
 
 local function atualizarBarra()
 	lblMoedas.Text = "💰 " .. Util.numero(player:GetAttribute("Moedas") or 0)
@@ -126,14 +146,19 @@ RunService.Heartbeat:Connect(function()
 end)
 
 ------------------------------------------------------------------------
--- Botão DESEMBRULHAR (aparece perto da mesa). Segure para desembrulhar.
--- No PC também dá pra segurar a tecla F.
+-- Botão DESEMBRULHAR: aparece perto da SUA bancada. Segure para desembrulhar
+-- os presentes que estão em cima dela. No PC também dá pra segurar a tecla F,
+-- ou segurar o botão do mouse passando por cima dos presentes da bancada
+-- (no celular, o mesmo arrastando o dedo).
 ------------------------------------------------------------------------
-local mesa: BasePart? = nil
-task.spawn(function()
-	local mapa = workspace:WaitForChild("MapaPartida")
-	mesa = mapa:WaitForChild("MesaDesembrulhar") :: BasePart
-end)
+local function minhaBancada(): Model?
+	local numero = player:GetAttribute("Bancada")
+	local mapa = workspace:FindFirstChild("MapaPartida")
+	if not numero or not mapa then
+		return nil
+	end
+	return mapa:FindFirstChild("Bancada_" .. numero) :: Model?
+end
 
 local btnDesembrulhar = Interface.botao(gui, "✂️ DESEMBRULHAR", CORES.verde, {
 	AnchorPoint = Vector2.new(1, 1),
@@ -149,9 +174,10 @@ Interface.texto(btnDesembrulhar, { Size = UDim2.fromScale(1, 0.35), Position = U
 
 local segurandoBotao = false
 local segurandoTecla = false
+local arrastando = false
 local enviado = false
 local function atualizarSegurando()
-	local agora = (segurandoBotao or segurandoTecla) and btnDesembrulhar.Visible
+	local agora = (segurandoBotao or segurandoTecla or arrastando) and btnDesembrulhar.Visible
 	if agora ~= enviado then
 		enviado = agora
 		remDesembrulhar:FireServer(agora)
@@ -183,12 +209,37 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
--- Dica de "saco cheio" com seta para a mesa
+-- Dedos encostados na tela (para o "arrastar por cima dos presentes" no celular)
+local toques: { [InputObject]: boolean } = {}
+UserInputService.InputBegan:Connect(function(input, processado)
+	if not processado and input.UserInputType == Enum.UserInputType.Touch then
+		toques[input] = true
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	toques[input] = nil
+end)
+
+-- O raio da câmera passa por cima da minha bancada (ou da pilha de presentes dela)?
+local paramsBancada = RaycastParams.new()
+paramsBancada.FilterType = Enum.RaycastFilterType.Include
+local function apontaParaBancada(bancada: Model, raio: Ray): boolean
+	local lista: { Instance } = { bancada }
+	local pilhas = workspace:FindFirstChild("PilhasBancadas")
+	local pilha = pilhas and pilhas:FindFirstChild(bancada.Name)
+	if pilha then
+		table.insert(lista, pilha)
+	end
+	paramsBancada.FilterDescendantsInstances = lista
+	return workspace:Raycast(raio.Origin, raio.Direction * 120, paramsBancada) ~= nil
+end
+
+-- Dica no meio de baixo da tela
 local lblDicaSaco = Interface.texto(gui, {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.fromScale(0.5, 0.86),
 	Size = UDim2.fromScale(0.5, 0.06),
-	Text = "🎒 Saco cheio! Vá para a ✂️ Mesa de Desembrulhar",
+	Text = "",
 	TextColor3 = Color3.fromRGB(255, 220, 120),
 	Visible = false,
 })
@@ -196,16 +247,49 @@ local lblDicaSaco = Interface.texto(gui, {
 RunService.Heartbeat:Connect(function()
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local bancada = minhaBancada()
 	local perto = false
-	if root and mesa then
+	local bandeja = bancada and bancada:FindFirstChild("Bandeja") :: BasePart?
+	if root and bandeja then
+		local centro = bandeja.Position
 		local a = Vector3.new(root.Position.X, 0, root.Position.Z)
-		local b = Vector3.new(mesa.Position.X, 0, mesa.Position.Z)
-		perto = (a - b).Magnitude <= Config.RAIO_MESA
+		local b = Vector3.new(centro.X, 0, centro.Z)
+		perto = (a - b).Magnitude <= Config.RAIO_BANCADA
 	end
 	btnDesembrulhar.Visible = perto and not workspace:GetAttribute("TempoFinal")
+
+	-- Segurando o mouse (ou o dedo) em cima dos presentes da bancada também desembrulha
+	arrastando = false
+	if perto and bancada then
+		local camera = workspace.CurrentCamera
+		if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+			-- GetMouseLocation já conta a barra do topo, por isso aqui é ViewportPointToRay
+			local m = UserInputService:GetMouseLocation()
+			arrastando = apontaParaBancada(bancada, camera:ViewportPointToRay(m.X, m.Y))
+		end
+		if not arrastando then
+			for toque in toques do
+				if apontaParaBancada(bancada, camera:ScreenPointToRay(toque.Position.X, toque.Position.Y)) then
+					arrastando = true
+					break
+				end
+			end
+		end
+	end
 	atualizarSegurando()
+
+	-- Dicas: saco cheio → vá para a sua bancada; perto dela com o saco cheio de coisas → aperte E
 	local saco, max = player:GetAttribute("Saco") or 0, player:GetAttribute("SacoMax") or 10
-	lblDicaSaco.Visible = saco >= max and not perto
+	local numero = player:GetAttribute("Bancada")
+	if perto and saco > 0 then
+		lblDicaSaco.Text = "🎁 Aperte E (ou toque no botão) para colocar os presentes na bancada"
+		lblDicaSaco.Visible = true
+	elseif saco >= max and not perto then
+		lblDicaSaco.Text = "🎒 Saco cheio! Leve até a sua ✂️ Bancada " .. tostring(numero or "")
+		lblDicaSaco.Visible = true
+	else
+		lblDicaSaco.Visible = false
+	end
 end)
 
 ------------------------------------------------------------------------
@@ -332,6 +416,35 @@ local function formatarNivel(m, valor: number): string
 	return tostring(valor)
 end
 
+-- Textos em cima dos caixotes de melhorias (cada jogador vê o PRÓPRIO nível e preço)
+local textosCaixotes: { [string]: TextLabel } = {}
+local function textoDoCaixote(m): string
+	local nivel = player:GetAttribute("Nivel_" .. m.id) or 1
+	local proximo = m.niveis[nivel + 1]
+	if proximo then
+		return string.format("%s\nNível %d → 💰 %s", m.nome, nivel, Util.numero(m.custos[nivel + 1]))
+	end
+	return m.nome .. "\nNível " .. nivel .. " • MÁXIMO"
+end
+task.spawn(function()
+	local mapa = workspace:WaitForChild("MapaPartida", math.huge)
+	for _, m in Config.MELHORIAS do
+		local caixote = mapa:WaitForChild("Caixote_" .. m.id, 30)
+		local caixa = caixote and caixote:FindFirstChild("Caixa") :: BasePart?
+		if caixa then
+			local bb = Instance.new("BillboardGui")
+			bb.Name = "TextoCaixote_" .. m.id
+			bb.Adornee = caixa
+			bb.Size = UDim2.fromScale(8, 2.6)
+			bb.StudsOffset = Vector3.new(0, 4.6, 0)
+			bb.MaxDistance = 70
+			bb.LightInfluence = 0
+			bb.Parent = gui
+			textosCaixotes[m.id] = Interface.texto(bb, { Size = UDim2.fromScale(1, 1), TextStrokeTransparency = 0, Text = textoDoCaixote(m) })
+		end
+	end
+end)
+
 local function atualizarLoja()
 	local moedas = player:GetAttribute("Moedas") or 0
 	for id, l in linhasLoja do
@@ -350,6 +463,10 @@ local function atualizarLoja()
 			l.btn.Text = "MÁXIMO"
 			l.btn.BackgroundColor3 = CORES.dourado
 		end
+		local t = textosCaixotes[id]
+		if t then
+			t.Text = textoDoCaixote(m)
+		end
 	end
 end
 player:GetAttributeChangedSignal("Moedas"):Connect(atualizarLoja)
@@ -358,22 +475,33 @@ for _, m in Config.MELHORIAS do
 end
 atualizarLoja()
 
-remAbrirLoja.OnClientEvent:Connect(function()
+-- Abre a loja (pela Máquina de Presentes ou por um caixote, já mostrando aquele item)
+local ondeAbriu: Vector3? = nil
+remAbrirLoja.OnClientEvent:Connect(function(idMelhoria: string?)
 	atualizarLoja()
 	painelLoja.Visible = true
 	Interface.pular(painelLoja)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	ondeAbriu = root and root.Position
+	local l = idMelhoria and linhasLoja[idMelhoria]
+	if l then
+		local linha = l.nome.Parent :: Frame
+		task.defer(function()
+			conteudoLoja.CanvasPosition = Vector2.new(0, math.max(0, linha.AbsolutePosition.Y - conteudoLoja.AbsolutePosition.Y + conteudoLoja.CanvasPosition.Y - 6))
+			Interface.pular(linha)
+		end)
+	end
 end)
 
--- Fecha a loja se o jogador se afastar
+-- Fecha a loja se o jogador se afastar de onde abriu
 task.spawn(function()
 	while true do
 		task.wait(0.5)
-		if painelLoja.Visible then
-			local mapa = workspace:FindFirstChild("MapaPartida")
-			local loja = mapa and mapa:FindFirstChild("Loja") :: BasePart?
+		if painelLoja.Visible and ondeAbriu then
 			local char = player.Character
 			local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if loja and root and (loja.Position - root.Position).Magnitude > 30 then
+			if root and (ondeAbriu - root.Position).Magnitude > 20 then
 				painelLoja.Visible = false
 			end
 		end
