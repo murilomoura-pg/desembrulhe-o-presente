@@ -646,6 +646,29 @@ function Natal.cerca(pai: Instance, a: Vector3, b: Vector3, altura: number?): Mo
 	return m
 end
 
+-- Cerca de TELA (alambrado) entre dois pontos no chão: postes de metal, tela meio
+-- transparente, cano em cima com neve. Bloqueia o jogador.
+function Natal.cercaDeTela(pai: Instance, a: Vector3, b: Vector3, altura: number?): Model
+	local m = Natal.modelo(pai, "CercaDeTela")
+	local h = altura or 6
+	local dir = b - a
+	local comprimento = dir.Magnitude
+	local cf = CFrame.lookAt((a + b) / 2, b)
+	local n = math.max(1, math.floor(comprimento / 8))
+	for i = 0, n do
+		local p = a:Lerp(b, i / n)
+		Natal.cilindro(m, p, p + CIMA * (h + 0.3), 0.45, P.metal, { Name = "Poste", Material = Enum.Material.Metal })
+		Natal.bola(m, p + CIMA * (h + 0.5), 0.8, P.neve, { Name = "Neve", Material = Enum.Material.Snow })
+	end
+	local tela = Natal.solida(m, { Name = "Tela", Size = Vector3.new(0.12, h - 0.4, comprimento), CFrame = cf + CIMA * (h / 2 + 0.1), Color = Color3.fromRGB(150, 158, 170), Material = Enum.Material.Metal, Transparency = 0.6 })
+	tela.CastShadow = false
+	Natal.cilindro(m, a + CIMA * h, b + CIMA * h, 0.3, P.metal, { Name = "Cano", Material = Enum.Material.Metal })
+	Natal.elipse(m, cf + CIMA * (h + 0.25), Vector3.new(0.7, 0.45, comprimento), P.neve, { Name = "NeveCano", Material = Enum.Material.Snow })
+	-- Neve acumulada no pé da cerca
+	Natal.elipse(m, cf + CIMA * 0.1, Vector3.new(1.6, 0.9, comprimento), P.neve, { Name = "NevePe", Material = Enum.Material.Snow })
+	return m
+end
+
 -- Trenó do Papai Noel (genérico), com saco de presentes
 function Natal.treno(pai: Instance, cf: CFrame): Model
 	local m = Natal.modelo(pai, "Treno")

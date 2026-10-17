@@ -1,20 +1,34 @@
--- Constrói o pátio da Oficina do Papai Noel: muros, Mesa de Desembrulhar, Loja e o Portão trancado.
--- A montanha de presentes é feita em outro arquivo (Montanha.luau).
--- Aqui ficam só as peças que FUNCIONAM no jogo. Os enfeites de Natal (fachada da oficina,
--- luzes, guirlandas, floresta, neve...) ficam em DecoracaoPartida.luau.
+-- Constrói o pátio da Oficina do Papai Noel (layout inspirado no Peel THE Potato, Capítulo 1).
+-- Visto de cima (o centro da montanha é o ponto 0,0; a montanha fica em Montanha.luau):
+--
+--              cerca de tela (norte)
+--        ┌──────────────────────────────┐
+--        │        ( MONTANHA de          │
+--        │          presentes, na         │
+--        │          plataforma redonda )  │
+--        └───┐         ↓ setas        ┌───┘
+--   caixotes │       [SPAWN]          │ caixotes
+--            ├────────────────────────┤  ← frente aberta da Oficina dos Elfos
+--            │  B1   B2  LOJA  B3  B4 │  ← 4 bancadas + Máquina de Presentes (loja)
+--            │                  (COFRE)│  ← portão de fuga no fundo, à direita
+--            └────────────────────────┘
+--
+-- Aqui ficam só as peças que FUNCIONAM no jogo. Os enfeites (galpão, cercas, neve,
+-- luzes, floresta...) ficam em DecoracaoPartida.luau.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Compartilhado.Config)
 local Util = require(ReplicatedStorage.Compartilhado.Util)
 local Natal = require(ServerStorage.Comum.Natal)
+local Bancadas = require(script.Parent.Bancadas)
 local DecoracaoPartida = require(script.Parent.DecoracaoPartida)
 
 local MapaPartida = {}
 
 local P = Config.PALETA
-local VERDE_MESA = Color3.fromRGB(60, 200, 110)
 
 -- raio = raio da montanha (o pátio cresce junto com ela)
 function MapaPartida.construir(raio: number)
@@ -24,42 +38,118 @@ function MapaPartida.construir(raio: number)
 	local pasta = Instance.new("Folder")
 	pasta.Name = "MapaPartida"
 
-	local meio = math.floor(raio + 55)
-	local alturaMuro = 26
+	-- Medidas do layout (todas a partir do centro da montanha)
+	local L = {
+		raio = raio,
+		zSpawn = raio + 32, -- spawn, olhando para a montanha (~2 s andando até ela)
+		zFrente = raio + 46, -- frente aberta da Oficina dos Elfos
+		zFundo = raio + 76, -- parede do fundo da oficina
+		zBancadas = raio + 56, -- linha das 4 bancadas (~3 s andando da montanha)
+		zCintura = raio + 12, -- onde o pátio fica da largura da oficina
+		metadeGalpao = 35, -- a oficina tem 70 de largura
+		alturaGalpao = 22,
+		metadePatio = math.max(raio + 16, 40), -- metade da largura do pátio em volta da montanha
+		zNorte = -(raio + 24), -- cerca atrás da montanha
+		xPortao = 27, -- o cofre fica no fundo, à direita das bancadas
+	}
 
-	-- O chão agora é TERRENO de neve (feito no DecoracaoPartida), sempre na altura 0.
+	-- Plataforma redonda de pedra embaixo da montanha, com anel dourado na borda
+	local disco = CFrame.Angles(0, 0, math.rad(90))
+	Natal.solida(pasta, { Name = "AnelDourado", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.36, (raio + 6.2) * 2, (raio + 6.2) * 2), CFrame = CFrame.new(0, 0.12, 0) * disco, Color = P.dourado, Material = Enum.Material.Foil })
+	Natal.solida(pasta, { Name = "Plataforma", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, (raio + 5) * 2, (raio + 5) * 2), CFrame = CFrame.new(0, 0.15, 0) * disco, Color = Color3.fromRGB(176, 182, 196), Material = Enum.Material.Slate })
 
-	-- Muros de pedra com neve em cima (o muro norte tem um buraco para o portão)
-	local larguraPortao = 30
-	local function muro(nome: string, tamanho: Vector3, pos: Vector3)
-		Util.peca({ Name = nome, Size = tamanho, Position = pos, Color = P.pedra, Material = Enum.Material.Cobblestone, Parent = pasta })
-		Util.peca({ Name = nome .. "_Topo", Size = Vector3.new(tamanho.X + 0.6, 1.5, tamanho.Z + 0.6), Position = pos + Vector3.new(0, tamanho.Y / 2 + 0.75, 0), Color = P.neve, Material = Enum.Material.Snow, Parent = pasta })
+	-- Spawn de frente para a montanha (o jogador nasce olhando para -Z)
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "Spawn"
+	spawn.Anchored = true
+	spawn.Size = Vector3.new(12, 1, 12)
+	spawn.Position = Vector3.new(0, 0.5, L.zSpawn)
+	spawn.Color = P.vermelho
+	spawn.Duration = 0
+	spawn.Parent = pasta
+
+	-- As 4 bancadas, em linha dentro da oficina, viradas para a frente aberta
+	local posicoes = {}
+	for _, x in { -21, -9, 9, 21 } do
+		table.insert(posicoes, Vector3.new(x, 0, L.zBancadas))
 	end
-	muro("MuroSul", Vector3.new(meio * 2, alturaMuro, 4), Vector3.new(0, alturaMuro / 2, meio))
-	muro("MuroLeste", Vector3.new(4, alturaMuro, meio * 2), Vector3.new(meio, alturaMuro / 2, 0))
-	muro("MuroOeste", Vector3.new(4, alturaMuro, meio * 2), Vector3.new(-meio, alturaMuro / 2, 0))
-	local ladoNorte = (meio * 2 - larguraPortao) / 2
-	muro("MuroNorteEsq", Vector3.new(ladoNorte, alturaMuro, 4), Vector3.new(-meio + ladoNorte / 2, alturaMuro / 2, -meio))
-	muro("MuroNorteDir", Vector3.new(ladoNorte, alturaMuro, 4), Vector3.new(meio - ladoNorte / 2, alturaMuro / 2, -meio))
-	muro("MuroNorteCima", Vector3.new(larguraPortao, 4, 4), Vector3.new(0, alturaMuro - 2, -meio))
-	-- Barreira invisível para ninguém pular o muro
-	for _, dados in {
-		{ Vector3.new(meio * 2, 200, 2), Vector3.new(0, 100, meio + 2) },
-		{ Vector3.new(meio * 2, 200, 2), Vector3.new(0, 100, -meio - 2) },
-		{ Vector3.new(2, 200, meio * 2), Vector3.new(meio + 2, 100, 0) },
-		{ Vector3.new(2, 200, meio * 2), Vector3.new(-meio - 2, 100, 0) },
-	} do
-		Util.peca({ Name = "Barreira", Size = dados[1], Position = dados[2], Transparency = 1, CanQuery = false, Parent = pasta })
+	Bancadas.construir(pasta, posicoes, -Vector3.zAxis)
+
+	-- Máquina de Presentes (a Loja de Melhorias), no meio das bancadas
+	local loja = Util.peca({ Name = "Loja", Size = Vector3.new(6.5, 4, 4.5), Position = Vector3.new(0, 2, L.zBancadas), Color = P.vermelho, Material = Enum.Material.SmoothPlastic, Parent = pasta })
+	local promptLoja = Instance.new("ProximityPrompt")
+	promptLoja.ActionText = "Abrir Loja"
+	promptLoja.ObjectText = "Máquina de Presentes"
+	promptLoja.HoldDuration = 0
+	promptLoja.MaxActivationDistance = 12
+	promptLoja.RequiresLineOfSight = false
+	promptLoja.Parent = loja
+
+	-- Caixotes com as melhorias (as mesmas da loja), encostados nas cercas perto do spawn
+	local caixotes = {}
+	local lugares = {
+		{ -1, L.zCintura + 6 },
+		{ -1, L.zCintura + 14 },
+		{ -1, L.zCintura + 22 },
+		{ 1, L.zCintura + 10 },
+		{ 1, L.zCintura + 18 },
+	}
+	for i, m in Config.MELHORIAS do
+		local lugar = lugares[i]
+		if not lugar then
+			break
+		end
+		local pos = Vector3.new(lugar[1] * (L.metadeGalpao - 3.5), 0, lugar[2])
+		local modelo = Instance.new("Model")
+		modelo.Name = "Caixote_" .. m.id
+		modelo:SetAttribute("Melhoria", m.id)
+		modelo.Parent = pasta
+		local caixa = Natal.solida(modelo, { Name = "Caixa", Size = Vector3.new(3.6, 3.6, 3.6), CFrame = CFrame.lookAt(pos + Vector3.yAxis * 1.8, Vector3.new(0, 1.8, pos.Z)), Color = P.madeira, Material = Enum.Material.WoodPlanks })
+		caixa.CanTouch = true
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = "Ver na Loja"
+		prompt.ObjectText = m.nome
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 8
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = caixa
+		table.insert(caixotes, { id = m.id, caixa = caixa, prompt = prompt })
 	end
 
-	-- Portão trancado (portão de madeira da oficina, com cadeado dourado)
-	local portao = Util.peca({ Name = "Portao", Size = Vector3.new(larguraPortao, alturaMuro - 4, 3), Position = Vector3.new(0, (alturaMuro - 4) / 2, -meio), Color = P.madeira, Material = Enum.Material.WoodPlanks, Parent = pasta })
-	local cadeado = Util.peca({ Name = "Cadeado", Size = Vector3.new(4, 5, 1), Position = portao.Position + Vector3.new(0, 0, 2), Color = P.dourado, Material = Enum.Material.Foil, CanCollide = false, Parent = pasta })
-	local placaPortao = Util.peca({ Name = "PlacaPortao", Size = Vector3.new(28, 5, 0.5), Position = Vector3.new(0, alturaMuro + 4, -meio + 1), Color = P.madeira, Material = Enum.Material.WoodPlanks, Parent = pasta })
-	Util.placa(placaPortao, "🔒 SAÍDA — PRECISA DA CHAVE", Enum.NormalId.Back, P.luz)
+	-- Portão de fuga: a porta redonda do COFRE do Papai Noel, no fundo da oficina.
+	-- (o nome "Portao", o "Cadeado" e o botão continuam os mesmos que a fuga usa)
+	local diametro = 13.2
+	local zPorta = L.zFundo - 0.75 - 0.65
+	local centroPorta = Vector3.new(L.xPortao, diametro / 2, zPorta)
+	local portao = Util.peca({
+		Name = "Portao",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1.2, diametro, diametro),
+		CFrame = CFrame.fromMatrix(centroPorta, Vector3.zAxis, Vector3.yAxis),
+		Color = Color3.fromRGB(150, 156, 170),
+		Material = Enum.Material.DiamondPlate,
+		Parent = pasta,
+	})
+	local cadeado = Util.peca({
+		Name = "Cadeado",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.8, 4.6, 4.6),
+		CFrame = CFrame.fromMatrix(centroPorta - Vector3.zAxis * 1, Vector3.zAxis, Vector3.yAxis),
+		Color = P.dourado,
+		Material = Enum.Material.Foil,
+		CanCollide = false,
+		Parent = pasta,
+	})
+	-- (formato redondo primeiro, tamanho depois, para o Roblox não mexer no tamanho)
+	portao.Shape = Enum.PartType.Cylinder
+	portao.Size = Vector3.new(1.2, diametro, diametro)
+	cadeado.Shape = Enum.PartType.Cylinder
+	cadeado.Size = Vector3.new(0.8, 4.6, 4.6)
+	local placaPortao = Util.peca({ Name = "PlacaPortao", Size = Vector3.new(15, 2.8, 0.4), Position = Vector3.new(L.xPortao, diametro + 2.4, L.zFundo - 1), Color = P.madeira, Material = Enum.Material.WoodPlanks, Parent = pasta })
+	Util.placa(placaPortao, "🔒 SAÍDA — PRECISA DA CHAVE", Enum.NormalId.Front, P.luz)
 	local promptPortao = Instance.new("ProximityPrompt")
 	promptPortao.ActionText = "Usar a Chave 🔑"
-	promptPortao.ObjectText = "Portão"
+	promptPortao.ObjectText = "Cofre do Papai Noel"
 	promptPortao.HoldDuration = 1
 	promptPortao.MaxActivationDistance = 16
 	promptPortao.RequiresLineOfSight = false
@@ -74,69 +164,48 @@ function MapaPartida.construir(raio: number)
 	destaquePortao.Enabled = false
 	destaquePortao.Parent = portao
 
-	-- Spawn (no lado sul)
-	local zSul = meio - 18
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Spawn"
-	spawn.Anchored = true
-	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.Position = Vector3.new(0, 0.5, zSul)
-	spawn.Color = P.vermelho
-	spawn.Duration = 0
-	spawn.Parent = pasta
-
-	-- Mesa de Desembrulhar (esquerda do spawn): bancada de madeira com tampo verde aceso
-	local mesaPos = Vector3.new(-26, 0, zSul - 4)
-	Util.peca({ Name = "MesaDesembrulhar", Size = Vector3.new(16, 3.5, 7), Position = mesaPos + Vector3.new(0, 1.75, 0), Color = P.madeiraClara, Material = Enum.Material.Wood, Parent = pasta })
-	Util.peca({ Name = "TampoMesa", Size = Vector3.new(16.4, 0.4, 7.4), Position = mesaPos + Vector3.new(0, 3.7, 0), Color = VERDE_MESA, Material = Enum.Material.Neon, CanCollide = false, Parent = pasta })
-	local placaMesa = Util.peca({ Name = "PlacaMesa", Size = Vector3.new(16, 4, 0.5), Position = mesaPos + Vector3.new(0, 9, -3), Color = P.madeira, Material = Enum.Material.WoodPlanks, Parent = pasta })
-	Util.placa(placaMesa, "✂️ MESA DE DESEMBRULHAR", Enum.NormalId.Front, P.luz)
-	Util.placa(placaMesa, "✂️ MESA DE DESEMBRULHAR", Enum.NormalId.Back, P.luz)
-	Util.peca({ Name = "AreaMesa", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, Config.RAIO_MESA * 2, Config.RAIO_MESA * 2), CFrame = CFrame.new(mesaPos + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = VERDE_MESA, Material = Enum.Material.Neon, Transparency = 0.7, CanCollide = false, CanQuery = false, Parent = pasta })
-	Natal.luz(placaMesa, Color3.fromRGB(150, 255, 180), 20, 1.5)
-
-	-- Loja (direita do spawn): barraquinha de mercado natalino
-	local lojaPos = Vector3.new(26, 0, zSul - 4)
-	local balcao = Util.peca({ Name = "Loja", Size = Vector3.new(14, 4, 5), Position = lojaPos + Vector3.new(0, 2, 0), Color = P.vermelho, Material = Enum.Material.Wood, Parent = pasta })
-	Util.peca({ Name = "TampoLoja", Size = Vector3.new(14.4, 0.4, 5.4), Position = lojaPos + Vector3.new(0, 4.2, 0), Color = P.dourado, Material = Enum.Material.Foil, Parent = pasta })
-	local toldo = Util.peca({ Name = "ToldoLoja", Size = Vector3.new(16, 0.6, 8), CFrame = CFrame.new(lojaPos + Vector3.new(0, 11, 1)) * CFrame.Angles(math.rad(-12), 0, 0), Color = P.vermelho, Material = Enum.Material.Fabric, CanCollide = false, Parent = pasta })
-	local colunas = {}
-	for _, x in { -7, 7 } do
-		table.insert(colunas, Util.peca({ Name = "ColunaLoja", Size = Vector3.new(0.8, 11, 0.8), Position = lojaPos + Vector3.new(x, 5.5, -2), Color = P.neve, Parent = pasta }))
+	-- A porta do cofre abre girando na dobradiça da direita (para dentro da oficina)
+	local dobradica = CFrame.new(L.xPortao + diametro / 2, centroPorta.Y, zPorta)
+	local relativo = dobradica:Inverse() * portao.CFrame
+	local function abrirPortao()
+		local giro = Instance.new("NumberValue")
+		giro.Changed:Connect(function(a)
+			portao.CFrame = dobradica * CFrame.Angles(0, math.rad(-80 * a), 0) * relativo
+		end)
+		local t = TweenService:Create(giro, TweenInfo.new(2.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = 1 })
+		t.Completed:Connect(function()
+			giro:Destroy()
+		end)
+		t:Play()
 	end
-	local placaLoja = Util.peca({ Name = "PlacaLoja", Size = Vector3.new(14, 3.5, 0.5), Position = lojaPos + Vector3.new(0, 8, -2), Color = P.vermelhoEscuro, Parent = pasta })
-	Util.placa(placaLoja, "🛒 LOJA DE MELHORIAS", Enum.NormalId.Front)
-	Util.placa(placaLoja, "🛒 LOJA DE MELHORIAS", Enum.NormalId.Back)
-	local promptLoja = Instance.new("ProximityPrompt")
-	promptLoja.ActionText = "Abrir Loja"
-	promptLoja.ObjectText = "Melhorias"
-	promptLoja.HoldDuration = 0
-	promptLoja.MaxActivationDistance = 14
-	promptLoja.RequiresLineOfSight = false
-	promptLoja.Parent = balcao
 
-	-- Decoração de Natal (terreno, oficina, muros enfeitados, postes, floresta...)
-	DecoracaoPartida.construir(pasta, {
-		raio = raio,
-		meio = meio,
-		alturaMuro = alturaMuro,
-		larguraPortao = larguraPortao,
-		zSul = zSul,
-		mesaPos = mesaPos,
-		lojaPos = lojaPos,
-		portao = portao,
-		cadeado = cadeado,
-		placaPortao = placaPortao,
-		placaMesa = placaMesa,
-		placaLoja = placaLoja,
-		toldo = toldo,
-		colunas = colunas,
-	})
+	-- Barreiras invisíveis (ninguém pula a cerca nem sai pelo cofre antes da hora)
+	local W, G = L.metadePatio, L.metadeGalpao
+	local function barreira(a: Vector3, b: Vector3)
+		local meio = (a + b) / 2
+		Util.peca({ Name = "Barreira", Size = Vector3.new(2, 200, (b - a).Magnitude + 2), CFrame = CFrame.lookAt(meio + Vector3.yAxis * 100, b + Vector3.yAxis * 100), Transparency = 1, CanQuery = false, Parent = pasta })
+	end
+	for _, lado in { -1, 1 } do
+		barreira(Vector3.new(lado * W, 0, L.zNorte), Vector3.new(lado * W, 0, L.zCintura))
+		barreira(Vector3.new(lado * W, 0, L.zCintura), Vector3.new(lado * G, 0, L.zCintura))
+		barreira(Vector3.new(lado * G, 0, L.zCintura), Vector3.new(lado * G, 0, L.zFundo))
+	end
+	barreira(Vector3.new(-W, 0, L.zNorte), Vector3.new(W, 0, L.zNorte))
+	barreira(Vector3.new(-G, 0, L.zFundo + 3), Vector3.new(G, 0, L.zFundo + 3))
+
+	-- Decoração de Natal (oficina, cercas, neve, luzes, floresta...)
+	L.portao = portao
+	L.cadeado = cadeado
+	L.placaPortao = placaPortao
+	L.loja = loja
+	L.caixotes = caixotes
+	L.bancadas = Bancadas.lista
+	L.diametroPorta = diametro
+	DecoracaoPartida.construir(pasta, L)
 
 	pasta.Parent = workspace
 
 	return {
-		mesaPos = mesaPos,
 		promptLoja = promptLoja,
 		promptPortao = promptPortao,
 		portao = portao,
@@ -144,6 +213,8 @@ function MapaPartida.construir(raio: number)
 		destaquePortao = destaquePortao,
 		placaPortao = placaPortao,
 		spawn = spawn,
+		caixotes = caixotes,
+		abrirPortao = abrirPortao,
 	}
 end
 
