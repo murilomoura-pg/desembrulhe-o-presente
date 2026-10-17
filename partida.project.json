@@ -16,6 +16,9 @@
         "Partida": { "$path": "src/partida/cliente" },
         "Comum": { "$path": "src/cliente-comum" }
       }
+    },
+    "Lighting": {
+      "$properties": { "Technology": "Future" }
     }
   }
 }

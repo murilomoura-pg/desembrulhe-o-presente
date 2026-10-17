@@ -73,8 +73,11 @@ function Montanha.gerar(quantidade: number, raio: number)
 		presente.Name = "Presente"
 		presente.Anchored = true
 		presente.CanTouch = false
-		presente.Size = Vector3.one * TAMANHO
-		presente.CFrame = CFrame.new(p) * CFrame.Angles(0, math.rad(rng:NextNumber(-12, 12)), 0)
+		-- Caixas com tamanhos levemente diferentes (só visual; cabem no mesmo lugar)
+		-- (as mais baixas descem um pouquinho para continuar apoiadas embaixo)
+		local altura = TAMANHO * rng:NextNumber(0.86, 1)
+		presente.Size = Vector3.new(TAMANHO * rng:NextNumber(0.9, 1), altura, TAMANHO * rng:NextNumber(0.9, 1))
+		presente.CFrame = CFrame.new(p - Vector3.yAxis * (TAMANHO - altura) / 2) * CFrame.Angles(0, math.rad(rng:NextNumber(-12, 12)), 0)
 		presente.Color = cor
 		presente.Material = rar.material
 		presente.TopSurface = Enum.SurfaceType.Smooth
@@ -83,26 +86,9 @@ function Montanha.gerar(quantidade: number, raio: number)
 		if rar.id ~= "Comum" then
 			presente.Reflectance = 0.15
 		end
-
-		-- Laço (só visual; o clique passa direto para a caixa)
-		local laco = Instance.new("Part")
-		laco.Name = "Laco"
-		laco.Anchored = true
-		laco.CanCollide = false
-		laco.CanQuery = false
-		laco.CanTouch = false
-		laco.CastShadow = false
-		laco.Size = Vector3.new(TAMANHO + 0.08, TAMANHO + 0.08, TAMANHO * 0.22)
-		laco.CFrame = presente.CFrame
-		laco.Color = rar.id == "Dourado" and Color3.fromRGB(200, 30, 40) or Color3.fromRGB(255, 215, 80)
-		laco.Material = Enum.Material.SmoothPlastic
-		laco.Parent = presente
-
-		if rar.id == "Arco-íris" or rar.id == "Diamante" then
-			local brilho = Instance.new("Sparkles")
-			brilho.SparkleColor = cor
-			brilho.Parent = presente
-		end
+		-- O laço e o brilho dos presentes raros são desenhados no CLIENTE, só nos
+		-- presentes que aparecem (MontanhaVisual.client.luau). Assim a montanha
+		-- fica com 1 peça por presente no servidor e roda leve no celular.
 		presente.Parent = nova
 	end
 	nova.Parent = workspace -- coloca tudo de uma vez (mais rápido)
