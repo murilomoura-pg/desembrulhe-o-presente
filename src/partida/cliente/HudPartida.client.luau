@@ -12,6 +12,8 @@ local Config = require(Compartilhado:WaitForChild("Config"))
 local Util = require(Compartilhado:WaitForChild("Util"))
 local Interface = require(Compartilhado:WaitForChild("Interface"))
 local CORES = Interface.CORES
+-- Animações dos personagens (só visual)
+local Animacoes = require(script.Parent.Parent:WaitForChild("Comum"):WaitForChild("Animacoes"))
 
 local player = Players.LocalPlayer
 
@@ -98,6 +100,16 @@ for _, nome in { "Moedas", "Estrelas", "Saco", "SacoMax" } do
 	player:GetAttributeChangedSignal(nome):Connect(atualizarBarra)
 end
 atualizarBarra()
+
+-- Só visual: o contador do saco dá um pulinho quando entra presente
+local sacoAntes = player:GetAttribute("Saco") or 0
+player:GetAttributeChangedSignal("Saco"):Connect(function()
+	local saco = player:GetAttribute("Saco") or 0
+	if saco > sacoAntes then
+		Interface.pular(lblSaco)
+	end
+	sacoAntes = saco
+end)
 
 ------------------------------------------------------------------------
 -- Topo: tempo e progresso da montanha
@@ -277,6 +289,10 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 	atualizarSegurando()
+	-- Só visual: braços desembrulhando enquanto segura e ainda tem presente na bancada
+	if enviado and (player:GetAttribute("Estoque") or 0) > 0 then
+		Animacoes.manter(player.Character, "desembrulhar")
+	end
 
 	-- Dicas: saco cheio → vá para a sua bancada; perto dela com o saco cheio de coisas → aperte E
 	local saco, max = player:GetAttribute("Saco") or 0, player:GetAttribute("SacoMax") or 10
@@ -315,6 +331,12 @@ local function tentarColetar(posTela: Vector2)
 		if root and (root.Position - hit.Instance.Position).Magnitude <= Config.ALCANCE_COLETA then
 			remColetar:FireServer(hit.Instance)
 			somPegar:Play()
+			-- Só visual, no mesmo instante (o pedido acima já saiu): gesto de pegar e uma cópia
+			-- do presente voando até você. Com o saco cheio o servidor recusa, então não anima.
+			if (player:GetAttribute("Saco") or 0) < (player:GetAttribute("SacoMax") or 10) then
+				Animacoes.pegar(char, hit.Instance.Position)
+				Animacoes.voarPresente(hit.Instance, char)
+			end
 		end
 	end
 end
