@@ -172,4 +172,32 @@ Config.TAGS_NATAL = {
 	portao = "NatalPortao",
 }
 
+------------------------------------------------------------------------
+-- 🕺 ANIMAÇÕES DOS PERSONAGENS (só aparência: nada aqui muda as regras do jogo)
+------------------------------------------------------------------------
+-- Os movimentos são feitos por código (cliente-comum/Animacoes.luau) e não
+-- precisam ser publicados. Se um dia quiser trocar algum por uma animação feita
+-- no Animation Editor, publique-a na conta dona do jogo e cole o ID aqui,
+-- ex.: PEGAR = "rbxassetid://1234567890". Vazio ("") = usa o movimento por código.
+Config.ANIMACOES = {
+	IDS = {
+		PEGAR = "",
+		COLOCAR = "",
+		DESEMBRULHAR = "",
+		ACENO = "",
+		ESPERA = "",
+		CHEGADA = "",
+		COMEMORAR = "",
+	},
+	-- Duração de cada movimento (segundos)
+	DURACOES = {
+		PEGAR = 0.4, -- um clique: estica os braços e volta
+		COLOCAR = 0.45, -- colocar os presentes na bancada
+		ACENO = 0.45, -- "entrei!" ao entrar numa sala do lobby
+		CHEGADA = 0.35, -- quando o jogo tira você da sala
+		COMEMORAR = 0.6, -- achou a chave / fugiu
+		VOO_PRESENTE = 0.3, -- presente voando até o personagem
+	},
+}
+
 return Config
