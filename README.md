@@ -85,3 +85,20 @@ Cada jogador da partida recebe **uma bancada** (são 4, uma por jogador; no Solo
 3. Segure **✂️ DESEMBRULHAR** (ou a tecla **F**, ou segure o mouse/dedo passando por cima dos presentes da bancada). Cada presente aberto vira moedas, na velocidade da melhoria **Tesoura**.
 
 Só o dono usa a própria bancada (o servidor confere o dono e a distância). Se alguém sai da partida, a bancada volta a ficar "Livre". Arquivos: `partida/servidor/Bancadas.luau` (bancadas e donos), `Partida.server.luau` (regras) e `partida/cliente/BancadasVisual.client.luau` (pilha de presentes e papel picado).
+
+## 🕺 Animações dos personagens
+
+Isso é **só aparência**: as regras, a velocidade de coleta e o servidor continuam iguais. Os movimentos são feitos **por código** (não precisam ser publicados no Roblox) e funcionam em **R15 e R6**. Cada jogador vê também os outros se mexendo, porque as animações usam os atributos que o servidor já manda para todo mundo (`Saco`, `Estoque` da bancada, `TemChave`, `Sala`).
+
+| Onde | O que acontece |
+|---|---|
+| **Partida** | Ao pegar um presente, o personagem vira para ele e estica os braços (segurando o clique, o movimento continua suave, sem recomeçar). Uma **cópia** do presente pula, gira, encolhe e voa até o personagem, e o contador 🎒 dá um pulinho. Na bancada: gesto de **colocar** (E) e braços **desembrulhando** enquanto segura. Achou a chave ou fugiu: **comemora**. |
+| **Lobby** | Entrou numa sala: **aceno**. Parado, o seu personagem **gira devagar** para o centro da sala e fica numa **pose de espera** discreta, que para na hora em que você anda. Quando o jogo tira alguém da sala (cheia, botão SAIR ou teleporte), aparece um **puff de neve** onde ele estava e onde chegou. |
+
+Arquivos:
+- `cliente-comum/Animacoes.luau` → todos os movimentos (pegar, desembrulhar, espera, colocar, aceno, chegada, comemorar), a cópia do presente voando e o puff de neve.
+- `partida/cliente/AnimacoesPartida.client.luau` e `lobby/cliente/AnimacoesLobby.client.luau` → ligam os movimentos ao que acontece no jogo.
+- `partida/cliente/HudPartida.client.luau` → poucas linhas marcadas com "Só visual" (gesto e cópia no clique, pulinho do 🎒, braços ao desembrulhar).
+- `Config.luau` → `Config.ANIMACOES` (durações e IDs opcionais).
+
+👉 **Quer usar uma animação feita no Animation Editor?** Publique-a na conta dona do jogo (Animation Editor → **...** → **Publicar no Roblox**), copie o ID e cole em `Config.ANIMACOES.IDS` (ex.: `PEGAR = "rbxassetid://123..."`). Com o ID vazio (`""`), o jogo usa o movimento feito por código.
