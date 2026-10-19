@@ -60,7 +60,7 @@ O jogo tem cara de **vila de Natal**. Isso é **só aparência**: as regras, os 
 
 | Onde | O que tem |
 |---|---|
-| **Lobby** | Chão de neve de verdade (Terrain) com caminhos de neve batida e montanhas em volta. Cada sala é um **chalé de madeira** com telhado nevado, guirlandas, pisca-pisca e bandeirinhas na cor da sala. No centro da praça fica a **Árvore Gigante**, com estrela 3D. A máquina fica na porta da **Fábrica de Ajudantes**, que tem chaminé com fumaça. Os placares ganharam moldura de madeira com neve, e uma floresta de pinheiros cerca tudo. |
+| **Lobby** | Chão de neve de verdade (Terrain) com caminhos de neve batida e montanhas em volta. Cada sala é um **chalé de madeira** com telhado nevado, guirlandas, pisca-pisca e bandeirinhas na cor da sala. No centro da praça fica a **Árvore Gigante**, com estrela 3D lapidada e grupinhos de presentes no pé. A máquina fica na porta da **Fábrica de Ajudantes**, que tem chaminé com fumaça. Os placares ganharam moldura de madeira com neve, e uma floresta de pinheiros em grupos (maiores perto das montanhas) cerca tudo. |
 | **Partida** | Pátio com neve e cercas de tela, montanha numa plataforma com anel dourado e setas no chão. Atrás do spawn fica a **Oficina dos Elfos** (galpão aberto) com as 4 bancadas, a Máquina de Presentes (loja) e o **cofre redondo** (portão de fuga), cujas luzes pulsam quando alguém acha a chave. Caixotes com as melhorias ficam perto do spawn e uma estrela dourada brilha sobre a montanha. |
 | **Efeitos** | Neve caindo, pisca-pisca suave, brilhos dourados e fumaça. Tudo roda **no cliente** (fica leve para o servidor) e é mais econômico no celular. |
 | **Interface** | Painéis vermelhos com borda dourada e sombra, botões com animação e altura mínima de 44 px (bom para o dedo). |
@@ -75,6 +75,24 @@ Arquivos do visual:
 👉 **Quer mudar uma cor de Natal?** Mude em `Config.PALETA`. Para tirar ou mover um enfeite, procure o nome dele em `DecoracaoLobby.luau` ou `DecoracaoPartida.luau`.
 
 **Iluminação:** a tecnologia de luz **Future** já vem configurada nos arquivos `.project.json` (não dá para trocar por script). Se o Studio perguntar sobre a migração de iluminação, pode aceitar.
+
+### 🌲 Pinheiros
+
+Todos os pinheiros (a Árvore Gigante, os da rua, os dos bosques, a floresta e os da Partida) saem do **mesmo gerador** em `Natal.luau`. A copa é feita de **andares de galhos**: cada andar é uma "saia" de cunhas em volta do tronco, com a ponta para fora e um pouco caída. Os andares ficam menores para cima e girados entre si, então a borda fica serrilhada como a de um pinheiro de verdade. A neve fica em cima das pontas de alguns galhos (sorteados), e cada árvore tem o próprio sorteio: sai sempre igual em todo servidor.
+
+`Natal.pinheiro(pasta, posição, escala, opções)`: escala 1 = uns 22 de altura. Opções principais:
+
+| Opção | O que faz |
+|---|---|
+| `estilo = "tradicional"` | bolas vermelhas e douradas, pisca-pisca colorido |
+| `estilo = "nevado"` | mais neve, bolas brancas e prata, luzes branco-quentes |
+| `estilo = "dourado"` | bolas douradas e brancas, luzes quentes |
+| `estilo = "natural"` | só neve (floresta) |
+| `estrela = true` | estrela 3D no topo (`frente` diz para onde ela olha) |
+| `montinho = true`, `presentes = 1 ou 2` | neve e presentes no pé da árvore |
+| `distante = 0 a 1` | verde mais escuro e azulado (árvores perto das montanhas) |
+
+As opções antigas (`luzes`, `bolas`, `lacos`, `estrela`, `neve`) continuam funcionando. Peças por árvore: floresta até ~18, decoradas ~60, Árvore Gigante ~350. A folhagem não tem colisão e tem `CanQuery` desligado (a câmera passa por ela sem pular); só o tronco é sólido.
 
 ## ✂️ Bancadas de desembrulhar
 

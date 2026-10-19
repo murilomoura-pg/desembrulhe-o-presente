@@ -18,6 +18,7 @@ local TAU = math.pi * 2
 local SPAWN = Vector3.new(0, 0, 20)
 local ARVORE = Vector3.new(0, 0, 66)
 local PLACAR = Vector3.new(40, 0, 50)
+local VILA = Vector3.new(0, 0, 20) -- centro da vila (a floresta fica em volta)
 
 -- Giro (em Y) para a frente (-Z) de um enfeite olhar de "de" para "para"
 local function giroPara(de: Vector3, para: Vector3): number
@@ -262,12 +263,13 @@ local function ruaEEnfeites(dec: Instance)
 	for _, x in { -72, -40, -10, 10, 40, 72 } do
 		Natal.poste(m, Vector3.new(x, 0, -8), true)
 	end
-	-- Pinheirinhos decorados entre os chalés e nas pontas da rua
+	-- Pinheirinhos decorados entre os chalés (pequenos) e pinheiros médios nas pontas
+	-- da rua. As estrelas olham para a rua; os presentes ficam só nos das pontas.
 	for _, x in { -34, 0, 34 } do
-		Natal.pinheiro(m, Vector3.new(x, 0, -34), 0.55, { luzes = true, bolas = true, estrela = true })
+		Natal.pinheiro(m, Vector3.new(x, 0, -34), 0.55, { estilo = if x == 0 then "dourado" else "nevado", estrela = true, montinho = true })
 	end
 	for _, x in { -72, 72 } do
-		Natal.pinheiro(m, Vector3.new(x, 0, -38), 1, { luzes = true, bolas = true, lacos = true, estrela = true })
+		Natal.pinheiro(m, Vector3.new(x, 0, -38), 1, { estilo = "tradicional", estrela = true, montinho = true, presentes = if x < 0 then 2 else 1 })
 	end
 	-- Bengalas no começo da rua e perto do spawn
 	for _, lado in { -1, 1 } do
@@ -299,8 +301,10 @@ local function floresta(dec: Instance)
 		return true
 	end
 
-	-- Bosques no meio do caminho (alguns decorados, perto de onde o jogador passa)
+	-- Bosques no meio do caminho: nos 4 mais perto da vila, um pinheiro médio decorado
+	-- (com estrela olhando para a vila); o resto só com neve. Estilos em pares, um de cada lado.
 	local bosques = { { -98, -6 }, { 98, -4 }, { -80, 92 }, { 86, 96 }, { -34, 118 }, { 38, 122 } }
+	local estilos = { "dourado", "dourado", "nevado", "nevado" }
 	for i, b in bosques do
 		local centro = Vector3.new(b[1], 0, b[2])
 		for k = 1, 3 do
@@ -308,24 +312,68 @@ local function floresta(dec: Instance)
 			local p = centro + Vector3.new(math.cos(a), 0, math.sin(a)) * Natal.sortear(5, 9)
 			if livre(p, 6) and cabe(p, 9) then
 				table.insert(colocadas, p)
-				local decorado = k == 1
-				Natal.pinheiro(m, p, Natal.sortear(0.85, 1.3), { luzes = decorado, bolas = decorado })
+				if k == 1 and estilos[i] then
+					Natal.pinheiro(m, p, Natal.sortear(0.95, 1.1), { estilo = estilos[i], estrela = true, frente = VILA - p, montinho = true })
+				else
+					Natal.pinheiro(m, p, Natal.sortear(0.8, 1.35), { estilo = "natural" })
+				end
 			end
 		end
 	end
 
-	-- Floresta em anel, entre a vila e as montanhas (pinheiros só nevados)
+	-- As montanhas são terreno: árvore só onde o chão ainda é plano
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	local function chaoPlano(p: Vector3): boolean
+		local r = workspace:Raycast(Vector3.new(p.X, 120, p.Z), Vector3.new(0, -240, 0), params)
+		return r == nil or r.Position.Y < 1.5
+	end
+
+	-- Floresta em GRUPOS de 3 a 5 pinheiros (só com neve), com clareiras entre eles.
+	-- Quanto mais perto das montanhas, maiores e um pouco mais azulados (profundidade).
+	local grupos: { Vector3 } = {}
 	local tentativas = 0
-	local feitas = 0
-	while feitas < 56 and tentativas < 400 do
+	while #grupos < 10 and tentativas < 400 do
 		tentativas += 1
 		local a = Natal.sortear(0, TAU)
-		local r = Natal.sortear(108, 150)
-		local p = Vector3.new(math.cos(a) * r, 0, 20 + math.sin(a) * r)
-		if livre(p, 8) and cabe(p, 13) then
+		local r = Natal.sortear(112, 146)
+		local centro = VILA + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+		local separado = true
+		for _, g in grupos do
+			if (g - centro).Magnitude < 40 then
+				separado = false
+				break
+			end
+		end
+		if separado and livre(centro, 6) then
+			table.insert(grupos, centro)
+			local fundo = math.clamp((r - 112) / 34, 0, 1)
+			local quantos = math.floor(Natal.sortear(3, 5.99))
+			local giro = Natal.sortear(0, TAU)
+			for k = 1, quantos do
+				local p = centro
+				if k > 1 then
+					local ak = giro + k * TAU / (quantos - 1) + Natal.sortear(-0.4, 0.4)
+					p = centro + Vector3.new(math.cos(ak), 0, math.sin(ak)) * Natal.sortear(7, 12)
+				end
+				if livre(p, 5) and cabe(p, 7.5) and chaoPlano(p) then
+					table.insert(colocadas, p)
+					-- O primeiro de cada grupo é o maior
+					local escala = Natal.sortear(1, 1.35) * (1 + fundo * 0.45) * (if k == 1 then 1.25 else 1)
+					Natal.pinheiro(m, p, escala, { estilo = "natural", distante = fundo })
+				end
+			end
+		end
+	end
+	-- Pinheiros bem grandes no pé das montanhas: dão profundidade ao fundo
+	for i = 0, 7 do
+		local a = i * TAU / 8 + Natal.sortear(-0.2, 0.2)
+		local r = Natal.sortear(150, 160)
+		local p = VILA + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+		if livre(p, 8) and cabe(p, 14) and chaoPlano(p) then
 			table.insert(colocadas, p)
-			feitas += 1
-			Natal.pinheiro(m, p, Natal.sortear(1.1, 2), {})
+			Natal.pinheiro(m, p, Natal.sortear(2.1, 2.7), { estilo = "natural", distante = 1 })
 		end
 	end
 end

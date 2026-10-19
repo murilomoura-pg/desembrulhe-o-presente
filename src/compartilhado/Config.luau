@@ -160,6 +160,9 @@ Config.PALETA = {
 	pedra = Color3.fromRGB(122, 130, 146),
 	metal = Color3.fromRGB(46, 50, 60),
 	neveBatida = Color3.fromRGB(206, 222, 238), -- caminhos de neve pisada
+	verdeEscuro = Color3.fromRGB(14, 66, 38), -- galhos de baixo e miolo dos pinheiros
+	verdeAzulado = Color3.fromRGB(30, 74, 78), -- pinheiros distantes (perto das montanhas)
+	prata = Color3.fromRGB(206, 214, 228), -- enfeites das árvores "nevadas"
 }
 
 -- Nomes das "etiquetas" (tags) que o cenário coloca nas peças para os efeitos
