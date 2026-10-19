@@ -253,8 +253,11 @@ end
 -- ESTRELA, SINO, MEIA, LAÇO, ENGRENAGEM
 ------------------------------------------------------------------------
 
--- Estrela 3D de 5 pontas virada para "cf.LookVector"
-function Natal.estrela(pai: Instance, cf: CFrame, tamanho: number, cor: Color3?): Model
+-- Estrela 3D de 5 pontas virada para "cf.LookVector".
+-- relevo: sem = chapada (título e Partida); "leve" = cada ponta com uma quina na
+-- frente; "cheia" = quina na frente e atrás (tipo diamante), com volume vista de lado.
+-- Com relevo, cada ponta tem uma metade clara e outra mais escura (cara de lapidada).
+function Natal.estrela(pai: Instance, cf: CFrame, tamanho: number, cor: Color3?, relevo: string?): Model
 	local m = Natal.modelo(pai, "Estrela")
 	local c = cor or P.dourado
 	local centro = cf.Position
@@ -263,18 +266,32 @@ function Natal.estrela(pai: Instance, cf: CFrame, tamanho: number, cor: Color3?)
 	local L = tamanho * 0.5 - r0
 	local W = (TAU * r0 / 5) * 1.15
 	local D = tamanho * 0.18
+	local quina = math.rad(30)
+	local escura = c:Lerp(Color3.fromRGB(200, 120, 30), 0.35)
 	for i = 0, 4 do
 		local a = i * TAU / 5
 		local fora = cimaE * math.cos(a) + direita * math.sin(a)
 		local lado = cimaE * -math.sin(a) + direita * math.cos(a)
 		local base = centro + fora * r0 * 0.9
-		Natal.triangulo(m, base, fora, L, lado, W / 2, D, c, { Name = "Ponta", Material = Enum.Material.Neon })
-		Natal.triangulo(m, base, fora, L, -lado, W / 2, D, c, { Name = "Ponta", Material = Enum.Material.Neon })
+		if relevo then
+			-- Cada metade da ponta fica inclinada para trás: o meio vira uma quina
+			local faces = if relevo == "cheia" then { 1, -1 } else { 1 }
+			for _, f in faces do
+				for _, l in { 1, -1 } do
+					local dir = lado * l * math.cos(quina) - cf.LookVector * f * math.sin(quina)
+					Natal.triangulo(m, base, fora, L, dir, W / 2 / math.cos(quina), tamanho * 0.07, if l == 1 then c else escura, { Name = "Ponta", Material = Enum.Material.Neon })
+				end
+			end
+		else
+			Natal.triangulo(m, base, fora, L, lado, W / 2, D, c, { Name = "Ponta", Material = Enum.Material.Neon })
+			Natal.triangulo(m, base, fora, L, -lado, W / 2, D, c, { Name = "Ponta", Material = Enum.Material.Neon })
+		end
 	end
+	local grossura = if relevo then W * math.tan(quina) * (if relevo == "cheia" then 1 else 0.6) else D * 1.25
 	local miolo = Natal.peca(m, {
 		Name = "Miolo",
 		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(D * 1.25, r0 * 2.3, r0 * 2.3),
+		Size = Vector3.new(grossura, r0 * 2.3, r0 * 2.3),
 		CFrame = CFrame.fromMatrix(centro, cf.LookVector, cimaE),
 		Color = c,
 		Material = Enum.Material.Neon,
@@ -334,159 +351,392 @@ end
 -- ÁRVORES
 ------------------------------------------------------------------------
 
-type Camada = { y: number, raio: number, meiaAltura: number }
+-- Pinheiro estilizado. A copa é feita de ANDARES DE GALHOS: cada andar é uma
+-- "saia" de cunhas (WedgePart) em volta do tronco, com a ponta para fora e um
+-- pouco caída. Os andares se sobrepõem, ficam menores para cima e são girados
+-- entre si, então a borda fica serrilhada como a de um pinheiro de verdade.
+-- O pinheiro, a floresta e a Árvore Gigante usam o MESMO gerador (copaDePinheiro):
+-- só mudam o tamanho e o acabamento (neve, luzes, bolas, laços, estrela).
+-- Cada árvore tem o seu próprio sorteio (semente pela posição): sai sempre igual.
 
--- Raio da copa numa altura (para colocar luzes e bolas por cima das camadas)
-local function raioCopa(camadas: { Camada }, y: number): number
-	local r = 0
-	for _, c in camadas do
-		local d = (y - c.y) / c.meiaAltura
-		if math.abs(d) < 1 then
-			r = math.max(r, c.raio * math.sqrt(1 - d * d))
-		end
-	end
-	return r
+type Galho = {
+	peca: BasePart,
+	angulo: number, -- direção da ponta, em volta do tronco
+	raio: number, -- distância da ponta até o eixo
+	yPonta: number, -- altura da ponta (a partir do pé da árvore)
+	yTopo: number, -- altura onde o galho encosta no eixo
+	largura: number,
+}
+type Copa = { pos: Vector3, andares: { { Galho } } }
+
+local function direcao(a: number): Vector3
+	return Vector3.new(math.cos(a), 0, math.sin(a))
 end
 
--- Pinheiro com copa em camadas fofas.
--- opcoes: neve (padrão sim), luzes, bolas, lacos, estrela (bolinha dourada no topo)
+-- Diferença entre dois ângulos, entre -pi e pi
+local function difAngulo(a: number, b: number): number
+	return (a - b + math.pi) % TAU - math.pi
+end
+
+-- Monta a copa. c: altura, raio, base (altura da ponta do andar de baixo),
+-- andares (quantos galhos em cada andar, de baixo para cima), queda (graus),
+-- cobertura (quanto da volta os galhos cobrem na ponta), sobreposicao (quanto cada
+-- andar entra por baixo do de cima), curva (menor = copa mais cheia em cima), corBaixo, corCima
+local function copaDePinheiro(m: Model, pos: Vector3, c: { [string]: any }, rnd: Random): Copa
+	local H, R, yBase = c.altura, c.raio, c.base
+	local n = #c.andares
+	local passo = (H - yBase) * 0.66 / math.max(1, n - 1)
+	local andares: { { Galho } } = {}
+	local giro = rnd:NextNumber(0, TAU)
+	for k, nGalhos in c.andares do
+		local t = (k - 1) / math.max(1, n - 1)
+		local yPonta = yBase + passo * (k - 1)
+		local yTopo = if k == n then H else yPonta + passo * (c.sobreposicao or 1.35)
+		local raio = R * ((H - yPonta) / (H - yBase)) ^ (c.curva or 0.8)
+		local cor = (c.corBaixo :: Color3):Lerp(c.corCima, t)
+		local galhos: { Galho } = {}
+		-- Cada andar girado em relação ao de baixo: as pontas não se alinham
+		giro += TAU / nGalhos * rnd:NextNumber(0.35, 0.65)
+		for j = 1, nGalhos do
+			local a = giro + (j - 1) * TAU / nGalhos + rnd:NextNumber(-0.15, 0.15) * TAU / nGalhos
+			local r = raio * rnd:NextNumber(0.95, 1.05) * (if j % 2 == 0 then 0.95 else 1)
+			local yP = yPonta + rnd:NextNumber(-0.06, 0.06) * passo
+			local q = math.rad(c.queda + rnd:NextNumber(-5, 5))
+			local largura = c.cobertura * TAU * r / nGalhos
+			local fora = direcao(a)
+			-- Cunha com a ponta em (r, yP) e a quina de cima no eixo, na altura yTopo
+			local alto = math.max((yTopo - yP - r * math.tan(q)) * math.cos(q), r * 0.3)
+			local L = (r + alto * math.sin(q)) / math.cos(q)
+			local B = pos - fora * (alto * math.sin(q)) + CIMA * (yP + L * math.sin(q))
+			local dirA = fora * math.cos(q) - CIMA * math.sin(q)
+			local dirB = fora * math.sin(q) + CIMA * math.cos(q)
+			-- Uma torcidinha em cada galho (nada fica perfeito demais)
+			local torcao = math.rad(rnd:NextNumber(-4, 4))
+			dirB = dirB * math.cos(torcao) + dirA:Cross(dirB) * math.sin(torcao)
+			local peca = Natal.triangulo(m, B, dirA, L, dirB, alto, largura, cor:Lerp(c.corCima, rnd:NextNumber(0, 0.3)), { Name = "Galho" })
+			table.insert(galhos, { peca = peca, angulo = a, raio = r, yPonta = yP, yTopo = yTopo, largura = largura })
+		end
+		table.insert(andares, galhos)
+	end
+	return { pos = pos, andares = andares }
+end
+
+-- Ponto na superfície da copa, na altura y e perto do ângulo pedido.
+-- Fica sempre em cima de um galho (nunca no vão entre dois), então nada flutua.
+local function naCopa(copa: Copa, angulo: number, y: number): (Vector3, Vector3)
+	local melhor, melhorA = -1, angulo
+	for _, galhos in copa.andares do
+		local g: Galho? = nil
+		local menor = math.huge
+		for _, x in galhos do
+			local d = math.abs(difAngulo(angulo, x.angulo))
+			if d < menor then
+				g, menor = x, d
+			end
+		end
+		if g and y >= g.yPonta and y <= g.yTopo then
+			local perfil = g.raio * (g.yTopo - y) / (g.yTopo - g.yPonta)
+			local maxDif = math.atan2(g.largura * 0.38, math.max(perfil, 0.1))
+			local a = g.angulo + math.clamp(difAngulo(angulo, g.angulo), -maxDif, maxDif)
+			local r = perfil / math.cos(a - g.angulo)
+			if r > melhor then
+				melhor, melhorA = r, a
+			end
+		end
+	end
+	local fora = direcao(melhorA)
+	return copa.pos + fora * math.max(melhor, 0) + CIMA * y, fora
+end
+
+-- Neve em cima do galho, na ponta: uma camada fina com o mesmo formato do galho
+-- (uma cunha menor encostada na face de cima), com tamanho e grossura variados
+local function neveNoGalho(m: Model, g: Galho, rnd: Random, volume: number)
+	local p = g.peca
+	local s = p.Size
+	local f = rnd:NextNumber(0.26, 0.42) * math.min(volume, 1.25)
+	local normal = p.CFrame:VectorToWorldSpace(Vector3.new(0, s.Z, -s.Y).Unit)
+	local espessura = math.clamp(s.X * 0.06, 0.1, 0.32) * volume * rnd:NextNumber(0.8, 1.3)
+	-- A ponta da neve fica na ponta do galho; a face de cima fica paralela à do galho
+	local centro = p.CFrame:PointToWorldSpace(Vector3.new(0, -s.Y / 2 + s.Y * f / 2, -s.Z / 2 + s.Z * f / 2)) + normal * espessura
+	Natal.peca(m, {
+		Name = "Neve",
+		Classe = "WedgePart",
+		Size = Vector3.new(s.X * rnd:NextNumber(0.7, 0.95), s.Y * f, s.Z * f),
+		CFrame = p.CFrame.Rotation + centro,
+		Color = P.neve,
+		Material = Enum.Material.Snow,
+	})
+end
+
+-- Pisca-pisca em espiral: as lâmpadas ficam com a MESMA distância entre si
+-- (calculada pelo comprimento da espiral, não por um passo fixo de ângulo)
+local function espiralDeLuzes(m: Model, copa: Copa, c: { [string]: any }, rnd: Random)
+	local y0, y1, voltas = c.y0, c.y1, c.voltas
+	local giro = rnd:NextNumber(0, TAU)
+	local amostras = 240
+	local medidas = table.create(amostras + 1, 0)
+	local anterior: Vector3? = nil
+	for i = 0, amostras do
+		local t = i / amostras
+		local y = y0 + (y1 - y0) * t
+		local p = naCopa(copa, giro + voltas * TAU * t, y)
+		medidas[i + 1] = if anterior then medidas[i] + (p - anterior).Magnitude else 0
+		anterior = p
+	end
+	local total = medidas[amostras + 1]
+	local n = math.max(2, math.floor(total / c.espaco + 0.5))
+	if c.maximo then
+		n = math.min(n, c.maximo)
+	end
+	local i = 1
+	for k = 0, n - 1 do
+		local alvo = (k + 0.5) * total / n
+		while i < amostras and medidas[i + 1] < alvo do
+			i += 1
+		end
+		local trecho = medidas[i + 1] - medidas[i]
+		local t = (i - 1 + (if trecho > 0 then (alvo - medidas[i]) / trecho else 0)) / amostras
+		local p, fora = naCopa(copa, giro + voltas * TAU * t, y0 + (y1 - y0) * t)
+		local cores = c.cores
+		Natal.lampada(m, p + fora * c.diametro * 0.3, c.diametro, cores and cores[k % #cores + 1])
+	end
+end
+
+-- Bolas penduradas nas PONTAS dos galhos. Cada andar é uma faixa e cada galho um
+-- setor: no máximo 1 bola por galho, alternando galho sim/galho não entre os
+-- andares, então nada se amontoa e nenhum lado fica vazio.
+local function bolasNasPontas(m: Model, copa: Copa, c: { [string]: any }, rnd: Random)
+	local nAndares = #copa.andares
+	local feitas = 0
+	for k, galhos in copa.andares do
+		local t = (k - 1) / math.max(1, nAndares - 1)
+		for j, g in galhos do
+			if (j + k) % 2 == 0 and rnd:NextNumber() < c.chance and feitas < c.maximo then
+				feitas += 1
+				-- 3 tamanhos: as maiores ficam mais embaixo
+				local sorteio = rnd:NextNumber() + t * 0.6
+				local d = c.tamanhos[if sorteio < 0.55 then 1 elseif sorteio < 1.05 then 2 else 3]
+				local cor = c.cores[(feitas + k) % #c.cores + 1]
+				local metal = cor == P.dourado or cor == P.prata
+				local fora = direcao(g.angulo)
+				local ponta = copa.pos + fora * g.raio + CIMA * g.yPonta
+				Natal.bola(m, ponta - CIMA * d * 0.5 - fora * d * 0.12, d, cor, {
+					Name = "Enfeite",
+					Material = if metal then Enum.Material.Foil else Enum.Material.SmoothPlastic,
+					Reflectance = if metal then 0.2 else 0.12,
+				})
+			end
+		end
+	end
+end
+
+-- Laços deitados na copa, um por andar (os andares de cima e de baixo ficam sem)
+local function lacosNaCopa(m: Model, copa: Copa, quantos: number, tamanho: number, cor: Color3, rnd: Random)
+	local nAndares = #copa.andares
+	local giro = rnd:NextNumber(0, TAU)
+	for i = 1, quantos do
+		local k = 1 + math.floor((i - 0.5) * (nAndares - 1) / quantos + 0.5)
+		local g = copa.andares[math.clamp(k, 1, nAndares)][1]
+		local y = g.yPonta + (g.yTopo - g.yPonta) * 0.32
+		local p, fora = naCopa(copa, giro + i * 2.4, y)
+		Natal.laco(m, CFrame.lookAt(p + fora * tamanho * 0.15, p + fora * 2), tamanho, cor)
+	end
+end
+
+-- Presentes no pé de uma árvore. lista = { {distância, ângulo, tamanho, cor, fita, laço, empilhado?} }
+local function presentesNoPe(m: Model, pos: Vector3, lista: { { any } })
+	for _, p in lista do
+		local a: number = p[2]
+		local t: number = p[3]
+		local base = pos + direcao(a) * p[1]
+		local altura = if p[7] then p[7] else 0
+		Natal.presente(m, base + CIMA * altura, Vector3.new(t, t * 0.85, t), p[4], p[5], a + (if p[7] then 1 else 0.4), p[6])
+	end
+end
+
+-- Verde das pontas de cima (mais claro: dá volume sem precisar de luz)
+local VERDE_PONTA = Color3.fromRGB(78, 158, 88)
+
+-- Acabamentos (mesmo formato, enfeites diferentes)
+local ESTILOS = {
+	tradicional = { bolas = { P.vermelho, P.dourado }, laco = P.vermelho, neve = 0.35 },
+	nevado = { bolas = { P.neve, P.prata }, laco = P.prata, luzes = { P.luz }, neve = 0.7 },
+	dourado = { bolas = { P.dourado, P.neve }, laco = P.dourado, luzes = { P.luz, P.dourado }, neve = 0.35 },
+	natural = { neve = 0.45 },
+}
+
+-- Pinheiro de Natal. Tamanho pela escala (1 = uns 22 de altura).
+-- opcoes:
+--   estilo: "tradicional" (vermelho e dourado), "nevado" (branco e prata, mais neve),
+--           "dourado" (dourado e branco) ou "natural" (só neve). Sem estilo, só
+--           aparece o que for pedido em luzes/bolas/lacos (como antes).
+--   neve (padrão sim), luzes e bolas (com estilo, padrão sim), lacos (só se pedir),
+--   estrela (estrela 3D no topo)
+--   frente: para onde a estrela olha (padrão +Z); distante (0 a 1): verde mais
+--   escuro e azulado, para árvores longe; montinho: neve no pé; presentes: 1 ou 2
 function Natal.pinheiro(pai: Instance, pos: Vector3, escala: number, opcoes: { [string]: any }?): Model
 	local o = opcoes or {}
 	local s = escala
 	local m = Natal.modelo(pai, "Pinheiro")
-	local giro = rng:NextNumber(0, TAU)
-	Natal.solida(m, { Name = "Tronco", Shape = Enum.PartType.Cylinder, Size = Vector3.new(3.4 * s, 1.6 * s, 1.6 * s), CFrame = CFrame.new(pos + CIMA * 1.7 * s) * CFrame.Angles(0, 0, math.rad(90)), Color = P.madeira, Material = Enum.Material.Wood })
-	local camadas: { Camada } = {}
-	for i = 0, 3 do
-		local largura = variar((12 - i * 2.7) * s, 0.06)
-		local altura = largura * 0.62
-		local y = (4.6 + i * 3.3) * s
-		local desvio = Vector3.new(rng:NextNumber(-0.25, 0.25), 0, rng:NextNumber(-0.25, 0.25)) * s
-		local centro = pos + CIMA * y + desvio
-		local cor = P.verde:Lerp(P.verdeClaro, rng:NextNumber(0, 0.45))
-		local copa = Natal.elipse(m, CFrame.new(centro) * CFrame.Angles(0, giro + i, 0), Vector3.new(largura, altura, largura), cor, { Name = "Copa" })
-		copa.CastShadow = s >= 0.8
-		table.insert(camadas, { y = y, raio = largura / 2, meiaAltura = altura / 2 })
-		if o.neve ~= false then
-			Natal.elipse(m, CFrame.new(centro + CIMA * altura * 0.24), Vector3.new(largura * 0.78, altura * 0.42, largura * 0.78), P.neve, { Name = "Neve", Material = Enum.Material.Snow })
+	local rnd = Random.new(o.semente or math.floor(math.abs(pos.X * 7919 + pos.Z * 104729 + s * 1009)) % 2147483647)
+	local estilo = o.estilo or (if o.luzes or o.bolas or o.lacos or o.estrela then "tradicional" else "natural")
+	local e = ESTILOS[estilo] or ESTILOS.natural
+	local function quer(nome: string): boolean
+		if o[nome] ~= nil then
+			return o[nome] == true
 		end
+		return o.estilo ~= nil and estilo ~= "natural" and nome ~= "lacos"
 	end
-	local topo = pos + CIMA * 16.4 * s
+	local luzes, bolas, lacos = quer("luzes"), quer("bolas"), quer("lacos")
+	local decorada = luzes or bolas or lacos or o.estrela == true
+	local pequena = s < 0.75
+
+	local H, R = 22 * s, 4.8 * s
+	local base = 2.6 * s
+	Natal.solida(m, { Name = "Tronco", Shape = Enum.PartType.Cylinder, Size = Vector3.new(base + 2.4 * s, 1.3 * s, 1.3 * s), CFrame = CFrame.new(pos + CIMA * (base + 2.4 * s) / 2) * CFrame.Angles(0, 0, math.rad(90)), Color = P.madeira, Material = Enum.Material.Wood })
+
+	-- Verde: escuro embaixo, mais claro em cima; as distantes ficam azuladas
+	local longe = o.distante or 0
+	local corBaixo = P.verde:Lerp(P.verdeEscuro, 0.5):Lerp(P.verdeAzulado, longe * 0.5)
+	local corCima = P.verdeClaro:Lerp(VERDE_PONTA, 0.35):Lerp(P.verdeAzulado, longe * 0.45)
+	local andares = if not decorada then { 5, 4, 3, 3 } elseif pequena then { 5, 5, 4, 4, 3 } else { 6, 5, 4, 4, 3 }
+	local copa = copaDePinheiro(m, pos, { altura = H, raio = R, base = base, andares = andares, queda = 26, cobertura = if decorada then 0.92 else 0.86, corBaixo = corBaixo, corCima = corCima }, rnd)
+	if decorada then
+		-- Miolo escuro: não deixa ver buraco entre os galhos e faz a sombra da árvore
+		local miolo = Natal.elipse(m, CFrame.new(pos + CIMA * (base + (H - base) * 0.36)), Vector3.new(R * 0.85, (H - base) * 0.7, R * 0.85), P.verdeEscuro, { Name = "Miolo" })
+		miolo.CastShadow = s >= 0.8
+	end
+
+	local topo = pos + CIMA * H
+	local gorro = o.neve ~= false and not o.estrela and (decorada or rnd:NextNumber() < 0.5)
 	if o.estrela then
-		Natal.bola(m, topo, 1.3 * s, P.dourado, { Name = "Estrela", Material = Enum.Material.Neon })
-	else
-		Natal.elipse(m, CFrame.new(topo), Vector3.new(1.4, 2.4, 1.4) * s, o.neve ~= false and P.neve or P.verde, { Name = "Ponta" })
+		local frente = (o.frente or Vector3.zAxis) * Vector3.new(1, 0, 1)
+		local tamanho = 1.5 + 1.2 * s
+		local centro = topo + CIMA * tamanho * 0.22
+		Natal.estrela(m, CFrame.lookAt(centro, centro + frente.Unit), tamanho, P.dourado, "leve")
+	elseif gorro then
+		-- "Gorrinho" de neve na ponta (só nas árvores sem estrela)
+		Natal.elipse(m, CFrame.new(topo - CIMA * 0.9 * s), Vector3.new(1.3, 2.4, 1.3) * s, P.neve, { Name = "NeveTopo", Material = Enum.Material.Snow })
 	end
-	-- Enfeites espalhados por cima da copa
-	local function pontoNaCopa(yMin: number, yMax: number, afastar: number): Vector3
-		local y = rng:NextNumber(yMin, yMax) * s
-		local a = rng:NextNumber(0, TAU)
-		local r = raioCopa(camadas, y) * 0.97 + afastar
-		return pos + Vector3.new(math.cos(a) * r, y, math.sin(a) * r)
-	end
-	if o.luzes then
-		for i = 1, 8 do
-			local y = (3 + i * 1.45) * s
-			local a = i * 2.2 + giro
-			local r = raioCopa(camadas, y) * 0.97 + 0.2
-			Natal.lampada(m, pos + Vector3.new(math.cos(a) * r, y, math.sin(a) * r), 0.45 * math.max(1, s))
+
+	-- Neve em cima de alguns galhos, sorteados (pulando outros ao acaso)
+	if o.neve ~= false then
+		local chance = e.neve * (if decorada then 1 else 1.1)
+		-- Limite de peças: floresta até ~18 por árvore, decoradas até ~60
+		local limite = if decorada then 6 elseif gorro then 1 else 2
+		local todos = {}
+		for k, galhos in copa.andares do
+			for _, g in galhos do
+				table.insert(todos, { g, k })
+			end
+		end
+		for i = #todos, 2, -1 do
+			local j = rnd:NextInteger(1, i)
+			todos[i], todos[j] = todos[j], todos[i]
+		end
+		local feitas = 0
+		for _, item in todos do
+			if feitas < limite and rnd:NextNumber() < chance * (if item[2] == 1 then 1.3 else 1) then
+				feitas += 1
+				neveNoGalho(m, item[1], rnd, if estilo == "nevado" then 1.3 else 1)
+			end
 		end
 	end
-	if o.bolas then
-		for i = 1, 6 do
-			local cor = i % 2 == 0 and P.dourado or P.vermelho
-			Natal.bola(m, pontoNaCopa(3, 13, 0.3), 0.75 * s, cor, { Name = "Enfeite", Material = i % 2 == 0 and Enum.Material.Foil or Enum.Material.SmoothPlastic, Reflectance = 0.15 })
-		end
+
+	if luzes then
+		espiralDeLuzes(m, copa, { y0 = base + 1.2 * s, y1 = H * 0.82, voltas = 2.6, espaco = 2.6 * s, maximo = 7, diametro = math.clamp(0.42 * s, 0.35, 0.5), cores = e.luzes }, rnd)
 	end
-	if o.lacos then
-		for _ = 1, 2 do
-			local p = pontoNaCopa(4, 11, 0.4)
-			Natal.laco(m, CFrame.lookAt(p, Vector3.new(pos.X, p.Y, pos.Z)) * CFrame.Angles(0, math.pi, 0), 1.1 * s, P.vermelho)
+	if bolas then
+		local cores = e.bolas or ESTILOS.tradicional.bolas
+		bolasNasPontas(m, copa, { chance = 0.75, maximo = if pequena then 6 else 7, tamanhos = { 1.1 * s, 0.85 * s, 0.65 * s }, cores = cores }, rnd)
+	end
+	if lacos then
+		lacosNaCopa(m, copa, 1, 1.2 * s, e.laco or P.vermelho, rnd)
+	end
+
+	-- Pé da árvore: montinho de neve e, em algumas, um ou dois presentes
+	if o.montinho then
+		Natal.elipse(m, CFrame.new(pos + CIMA * 0.2 * s), Vector3.new(R * 1.6, 1.7 * s, R * 1.6), P.neve, { Name = "NeveNoPe", Material = Enum.Material.Snow })
+	end
+	if o.presentes and o.presentes > 0 then
+		local a = rnd:NextNumber(0, TAU)
+		local lista = { { R * 0.75, a, 1.7, P.vermelho, P.dourado, true } }
+		if o.presentes > 1 then
+			table.insert(lista, { R * 0.85, a + 0.75, 1.2, P.neve, P.vermelho, false })
 		end
+		presentesNoPe(m, pos, lista)
 	end
 	return m
 end
 
--- A ÁRVORE GIGANTE do Lobby: ponto focal da praça
+-- A ÁRVORE GIGANTE do Lobby: ponto focal da praça (mesmo gerador, versão premium)
 function Natal.arvoreGigante(pai: Instance, pos: Vector3, direcaoFrente: Vector3): Model
 	local m = Natal.modelo(pai, "ArvoreGigante")
 	local frente = (direcaoFrente * Vector3.new(1, 0, 1)).Unit
+	local rnd = Random.new(2512)
+	local H, R, base = 49, 12, 4.8
 	-- Saia da árvore (tapete redondo) e tronco
 	Natal.peca(m, { Name = "Saia", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 30, 30), CFrame = CFrame.new(pos + CIMA * 0.15) * CFrame.Angles(0, 0, math.rad(90)), Color = P.vermelhoEscuro, Material = Enum.Material.Fabric })
 	Natal.peca(m, { Name = "BordaSaia", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 31.5, 31.5), CFrame = CFrame.new(pos + CIMA * 0.1) * CFrame.Angles(0, 0, math.rad(90)), Color = P.dourado })
 	Natal.solida(m, { Name = "Tronco", Shape = Enum.PartType.Cylinder, Size = Vector3.new(10, 4.5, 4.5), CFrame = CFrame.new(pos + CIMA * 5) * CFrame.Angles(0, 0, math.rad(90)), Color = P.madeira, Material = Enum.Material.Wood })
 
-	-- Copa: 7 camadas, cada uma com "tufos" em volta para ficar irregular e volumosa
-	local camadas: { Camada } = {}
-	for i = 0, 6 do
-		local f = i / 6
-		local largura = 30 + (8 - 30) * f
-		local altura = largura * 0.55 + 2
-		local y = 11 + i * 5.6
-		local centro = pos + CIMA * y
-		local cor = P.verde:Lerp(P.verdeClaro, 0.15 + 0.2 * (i % 2))
-		local copa = Natal.elipse(m, CFrame.new(centro), Vector3.new(largura, altura, largura), cor, { Name = "Copa" })
-		copa.CastShadow = true
-		for k = 0, 2 do
-			local a = math.rad(i * 47 + k * 120)
-			local off = Vector3.new(math.cos(a), 0, math.sin(a)) * largura * 0.27
-			Natal.elipse(m, CFrame.new(centro + off - CIMA * altura * 0.08), Vector3.new(largura * 0.55, altura * 0.72, largura * 0.55), P.verde:Lerp(P.verdeClaro, rng:NextNumber(0, 0.5)), { Name = "Tufo" })
+	-- Copa: 9 andares de galhos
+	local copa = copaDePinheiro(m, pos, { altura = H, raio = R, base = base, andares = { 14, 13, 12, 11, 10, 9, 8, 7, 5 }, curva = 0.72, queda = 22, cobertura = 0.82, corBaixo = P.verde:Lerp(P.verdeEscuro, 0.5), corCima = P.verdeClaro:Lerp(VERDE_PONTA, 0.35) }, rnd)
+	local miolo = Natal.elipse(m, CFrame.new(pos + CIMA * (base + (H - base) * 0.36)), Vector3.new(R * 0.85, (H - base) * 0.7, R * 0.85), P.verdeEscuro, { Name = "Miolo" })
+	miolo.CastShadow = true
+	for _, g in copa.andares[1] do
+		g.peca.CastShadow = true
+	end
+	-- Neve nos galhos: mais nos de baixo (neve fofa na borda da saia de galhos)
+	for k, galhos in copa.andares do
+		for _, g in galhos do
+			if rnd:NextNumber() < (if k == 1 then 0.6 else 0.3) then
+				neveNoGalho(m, g, rnd, if k == 1 then 1.4 else 1.1)
+			end
 		end
-		Natal.elipse(m, CFrame.new(centro + CIMA * altura * 0.25), Vector3.new(largura * 0.8, altura * 0.42, largura * 0.8), P.neve, { Name = "Neve", Material = Enum.Material.Snow })
-		table.insert(camadas, { y = y, raio = largura / 2 * 1.06, meiaAltura = altura / 2 })
 	end
 
-	-- Cordão de luzes em espiral (5 voltas)
-	local voltas, total = 5, 78
-	for k = 0, total - 1 do
-		local t = k / (total - 1)
-		local y = 5 + t * 40
-		local a = t * voltas * TAU
-		local r = raioCopa(camadas, y) + 0.45
-		Natal.lampada(m, pos + Vector3.new(math.cos(a) * r, y, math.sin(a) * r), 0.75)
-	end
-	-- Bolas vermelhas e douradas
-	for i = 1, 34 do
-		local y = rng:NextNumber(5, 42)
-		local a = rng:NextNumber(0, TAU)
-		local r = raioCopa(camadas, y) + 0.3
-		local dourada = i % 2 == 0
-		Natal.bola(m, pos + Vector3.new(math.cos(a) * r, y, math.sin(a) * r), rng:NextNumber(1.3, 2), dourada and P.dourado or P.vermelho, {
-			Name = "Enfeite",
-			Material = dourada and Enum.Material.Foil or Enum.Material.SmoothPlastic,
-			Reflectance = 0.2,
-		})
-	end
-	-- Laços vermelhos grandes
-	for i = 1, 6 do
-		local y = 8 + i * 5.5
-		local a = i * 2.4
-		local r = raioCopa(camadas, y) + 0.5
-		local p = pos + Vector3.new(math.cos(a) * r, y, math.sin(a) * r)
-		Natal.laco(m, CFrame.lookAt(p, p + (p - Vector3.new(pos.X, p.Y, pos.Z))), 2.6, P.vermelho)
-	end
+	espiralDeLuzes(m, copa, { y0 = base + 1.5, y1 = H * 0.86, voltas = 5.5, espaco = 2.5, diametro = 0.6 }, rnd)
+	bolasNasPontas(m, copa, { chance = 0.85, maximo = 44, tamanhos = { 2, 1.5, 1.1 }, cores = { P.vermelho, P.dourado, P.vermelho, P.neve } }, rnd)
+	lacosNaCopa(m, copa, 7, 2.2, P.vermelho, rnd)
 
-	-- Estrela 3D no topo + luz e brilhos (o cliente solta faíscas douradas nela)
-	local posEstrela = pos + CIMA * 52
-	local estrela = Natal.estrela(m, CFrame.lookAt(posEstrela, posEstrela + frente), 8)
-	local miolo = estrela.PrimaryPart :: BasePart
-	miolo:AddTag(TAGS.brilho)
-	Natal.luz(miolo, P.dourado, 18, 2)
+	-- Estrela 3D no topo (com volume dos lados) + luz e brilhos (o cliente solta faíscas douradas nela)
+	local tamanho = 7
+	local posEstrela = pos + CIMA * (H + tamanho * 0.2)
+	local estrela = Natal.estrela(m, CFrame.lookAt(posEstrela, posEstrela + frente), tamanho, P.dourado, "cheia")
+	local nucleo = estrela.PrimaryPart :: BasePart
+	nucleo:AddTag(TAGS.brilho)
+	Natal.luz(nucleo, P.dourado, 18, 2)
 	-- Área invisível em volta da copa: os brilhos dourados sutis saem daqui
-	local area = Natal.peca(m, { Name = "AreaBrilho", Size = Vector3.new(22, 34, 22), CFrame = CFrame.new(pos + CIMA * 24), Transparency = 1 })
+	local area = Natal.peca(m, { Name = "AreaBrilho", Size = Vector3.new(18, 34, 18), CFrame = CFrame.new(pos + CIMA * 24), Transparency = 1 })
 	area:AddTag(TAGS.brilho)
 	area:SetAttribute("Suave", true)
 	local luzInterna = Natal.peca(m, { Name = "LuzInterna", Size = Vector3.one, CFrame = CFrame.new(pos + CIMA * 16 + frente * 14), Transparency = 1 })
 	Natal.luz(luzInterna, P.luz, 20, 1.3)
 
-	-- Presentes na base
-	for i = 1, 10 do
-		local a = i * TAU / 10 + 0.3
-		local r = rng:NextNumber(5.5, 10)
-		local t = rng:NextNumber(2, 3.6)
-		local cores = { P.vermelho, P.dourado, P.neve, P.verdeClaro, P.azul }
-		Natal.presente(m, pos + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r), Vector3.new(t * variar(1, 0.15), t, t * variar(1, 0.15)), cores[i % #cores + 1], i % 2 == 0 and P.vermelho or P.dourado, a, i % 3 == 0)
+	-- Presentes em 3 grupinhos (dois ladeando a entrada e um atrás), dentro da saia
+	local ang = math.atan2(frente.Z, frente.X)
+	local function grupo(angulo: number, dist: number, lista: { { any } })
+		local centro = pos + direcao(ang + angulo) * dist
+		presentesNoPe(m, centro, lista)
 	end
+	grupo(1.1, 13.8, {
+		{ 0, 0, 3.4, P.vermelho, P.dourado, false },
+		{ 0, 0, 2.2, P.dourado, P.vermelho, true, 3.4 * 0.85 },
+		{ 2.9, 1.3, 2.3, P.neve, P.vermelho, true },
+		{ 2.6, -1.4, 1.7, P.verdeClaro, P.dourado, false },
+		{ 3.9, 0.3, 1.3, P.azul, P.neve, false },
+	})
+	grupo(-1.15, 12, {
+		{ 0, 0, 2.8, P.dourado, P.vermelho, true },
+		{ 2.6, 2.2, 2, P.vermelho, P.neve, false },
+		{ 2.4, -0.8, 1.5, P.neve, P.dourado, true },
+	})
+	grupo(math.pi + 0.35, 13.8, {
+		{ 0, 0, 3, P.verdeClaro, P.dourado, false },
+		{ 0, 0, 1.9, P.vermelho, P.dourado, true, 3 * 0.85 },
+		{ 2.7, 2, 1.8, P.dourado, P.vermelho, false },
+	})
 	return m
 end
 
